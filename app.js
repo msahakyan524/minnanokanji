@@ -1069,6 +1069,17 @@ const SAKURA_JI =
   '</g><ellipse cx="33" cy="33" rx="18" ry="14" fill="#fff5f8"/>' +
   '<text x="33" y="34" text-anchor="middle" dominant-baseline="central" font-family="serif" font-weight="700" font-size="16" fill="#c2185b" lang="ja">字</text></svg>';
 
+/* plain sakura flower (no character) — used on the finish screen */
+const SAKURA_PLAIN =
+  '<svg class="set-flower" viewBox="0 0 66 64" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">' +
+  '<g fill="#ffb0d2" stroke="#ff8fbb" stroke-width="1.5" stroke-linejoin="round">' +
+  '<path d="M33 34 C 19 32, 17 15, 25.5 9 C 28.5 6.5, 31 11, 33 13 C 35 11, 37.5 6.5, 40.5 9 C 49 15, 47 32, 33 34 Z" transform="rotate(0 33 32)"/>' +
+  '<path d="M33 34 C 19 32, 17 15, 25.5 9 C 28.5 6.5, 31 11, 33 13 C 35 11, 37.5 6.5, 40.5 9 C 49 15, 47 32, 33 34 Z" transform="rotate(72 33 32)"/>' +
+  '<path d="M33 34 C 19 32, 17 15, 25.5 9 C 28.5 6.5, 31 11, 33 13 C 35 11, 37.5 6.5, 40.5 9 C 49 15, 47 32, 33 34 Z" transform="rotate(144 33 32)"/>' +
+  '<path d="M33 34 C 19 32, 17 15, 25.5 9 C 28.5 6.5, 31 11, 33 13 C 35 11, 37.5 6.5, 40.5 9 C 49 15, 47 32, 33 34 Z" transform="rotate(216 33 32)"/>' +
+  '<path d="M33 34 C 19 32, 17 15, 25.5 9 C 28.5 6.5, 31 11, 33 13 C 35 11, 37.5 6.5, 40.5 9 C 49 15, 47 32, 33 34 Z" transform="rotate(288 33 32)"/>' +
+  '</g><circle cx="33" cy="32" r="7" fill="#ffd34e"/></svg>';
+
 const sameItem = (a, b) => a.type === b.type && a.ja === b.ja;
 const isStarred = (item) => loadStars().some((s) => sameItem(s, item));
 function toggleStar(item, btn) {
@@ -1249,7 +1260,7 @@ function finishStudy() {
   const done = $("#study-done");
   done.classList.remove("hidden");
   done.innerHTML = "";
-  done.appendChild(el("p", "fc-reading", "Ավարտ"));
+  done.appendChild(el("p", "fc-reading", "Վերջ " + SAKURA_PLAIN));
   done.appendChild(el("p", null, "Գիտեմ՝ " + known + " · Չգիտեմ՝ " + unknown.length));
   if (unknown.length) {
     const again = el("button", "btn btn-primary", "Կրկնել չիմացածները (" + unknown.length + ")");
