@@ -573,6 +573,10 @@ function setupDrawPad() {
   const ctx = canvas.getContext("2d");
   let strokes = [];
   let current = null;
+  const drawStatus = $("#draw-status");
+  function showCount() {
+    if (drawStatus) drawStatus.textContent = "Strokes drawn: " + strokes.length;
+  }
 
   function clearPad() {
     ctx.fillStyle = "#fff";
@@ -583,6 +587,7 @@ function setupDrawPad() {
     ctx.strokeStyle = "#111";
     strokes = [];
     current = null;
+    showCount();
   }
   clearPad();
 
@@ -615,7 +620,7 @@ function setupDrawPad() {
     ctx.stroke();
   }
   function stop() {
-    if (drawing && current && current.x.length) strokes.push(current);
+    if (drawing && current && current.x.length) { strokes.push(current); showCount(); }
     drawing = false;
     current = null;
   }
