@@ -268,6 +268,16 @@ body.flash-mode #flash-view { display: block; }
 .fc-back { transform: rotateY(180deg); }
 .fc-ja { font-size: 64px; line-height: 1.1; font-weight: 500; }
 .fc-ja.word { font-size: 44px; }
+.fc-ja-sm { font-size: 40px; line-height: 1.1; font-weight: 500; }
+.fc-ja-sm.word { font-size: 30px; }
+.fc-clickable { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 6px; }
+.fc-clickable:hover { color: var(--accent); }
+.fc-level {
+  position: absolute; top: 10px; left: 12px;
+  background: var(--accent); color: #fff;
+  font-size: 13px; font-weight: 700;
+  padding: 2px 9px; border-radius: 999px;
+}
 .fc-reading { font-size: 24px; color: var(--accent-ink); }
 .fc-hint { color: var(--ink-soft); font-size: 14px; }
 .study-controls { margin-bottom: 16px; }

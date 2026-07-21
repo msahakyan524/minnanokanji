@@ -75,6 +75,7 @@ async function getKanji(ch) {
         on: j.on_readings || [],
         kun: j.kun_readings || [],
         strokes: j.stroke_count || null,
+        jlpt: j.jlpt || null,
       };
     }
   } catch (e) {
@@ -91,6 +92,7 @@ async function getKanji(ch) {
           on: k.onyomi || [],
           kun: k.kunyomi || [],
           strokes: k.stroke_count || null,
+          jlpt: k.jlpt || null,
         };
       }
     } catch (e) {
@@ -338,7 +340,7 @@ async function renderKanji(ch, container) {
   const meaningText = info.meanings.join(", ");
   const iconRow = el("div", "icon-row");
   iconRow.appendChild(speakerBtn(ch));
-  iconRow.appendChild(starBtn({ type: "kanji", ja: ch, reading: kanjiReading, meaning: meaningText }));
+  iconRow.appendChild(starBtn({ type: "kanji", ja: ch, reading: kanjiReading, meaning: meaningText, level: info.jlpt || null }));
   glyphWrap.appendChild(iconRow);
   top.appendChild(glyphWrap);
 
@@ -1087,7 +1089,7 @@ function toggleStar(item, btn) {
   const i = stars.findIndex((s) => sameItem(s, item));
   if (i >= 0) { stars.splice(i, 1); if (btn) btn.classList.remove("starred"); toast("Հեռացվեց հատուկ բառերից"); }
   else {
-    stars.unshift({ type: item.type, ja: item.ja, reading: item.reading, meaning: item.meaning });
+    stars.unshift({ type: item.type, ja: item.ja, reading: item.reading, meaning: item.meaning, level: item.level || null });
     if (btn) btn.classList.add("starred"); toast("Ավելացվեց աստղանիշին");
   }
   saveStars(stars);
@@ -1191,7 +1193,7 @@ $("#create-set").addEventListener("click", async () => {
     const info = await getKanji(ch);
     if (info) {
       const reading = [...(info.on || []), ...(info.kun || [])].join("・");
-      items.push({ type: "kanji", ja: ch, reading, meaning: (info.meanings || []).join(", "), known: null });
+      items.push({ type: "kanji", ja: ch, reading, meaning: (info.meanings || []).join(", "), level: info.jlpt || null, known: null });
     }
     if (addWords) {
       const ex = await getExamples(ch);
@@ -1235,11 +1237,29 @@ function showCard() {
   const back = fc.querySelector(".fc-back");
   front.innerHTML = "";
   back.innerHTML = "";
+  // FRONT: big kanji/word, tap card to flip
   front.appendChild(starBtn(it, "fc-star"));
   front.appendChild(el("div", "fc-ja" + (it.type === "word" ? " word" : ""), '<span lang="ja">' + esc(it.ja) + "</span>"));
   front.appendChild(el("p", "fc-hint", "Սեղմիր՝ շրջելու համար"));
+
+  // BACK: level badge (top-left), clickable kanji, reading, meaning
+  if (it.level) back.appendChild(el("span", "fc-level", "N" + it.level));
+  const bja = el("div", "fc-ja-sm fc-clickable" + (it.type === "word" ? " word" : ""), '<span lang="ja">' + esc(it.ja) + "</span>");
+  bja.title = "Բացիր ամբողջական էջը";
+  bja.addEventListener("click", (e) => { e.stopPropagation(); openDetail(it.ja); });
+  back.appendChild(bja);
   if (it.reading) back.appendChild(el("div", "fc-reading", '<span lang="ja">' + esc(it.reading) + "</span>"));
   back.appendChild(meaningBlock(it.meaning));
+  back.appendChild(el("p", "fc-hint", "Սեղմիր նշանին՝ ամբողջական էջի համար"));
+}
+
+/* open the full dictionary page for a kanji/word (leaves flashcards) */
+function openDetail(ja) {
+  closeFlash();
+  $("#study").classList.add("hidden");
+  analyze(ja);
+  const r = $("#results");
+  if (r) setTimeout(() => r.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
 }
 function flipCard() { $("#flashcard").classList.toggle("flipped"); }
 function markCard(known) {
