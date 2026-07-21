@@ -1527,11 +1527,64 @@ $("#edit-set-words").addEventListener("change", async (e) => {
   toast("Ավելացվեց " + added + " բառ");
 });
 
-$("#flashcard").addEventListener("click", flipCard);
 $("#flip-card").addEventListener("click", flipCard);
 $("#mark-known").addEventListener("click", () => markCard(true));
 $("#mark-unknown").addEventListener("click", () => markCard(false));
 $("#study-back").addEventListener("click", goBack);
+
+/* ---- swipe the card: right = know, left = don't know; tap = flip ---- */
+(function setupCardGestures() {
+  const card = $("#flashcard");
+  if (!card) return;
+  let sx = 0, dx = 0, dragging = false, moved = false;
+  card.addEventListener("pointerdown", (e) => {
+    // let taps on the star / clickable kanji / buttons work normally
+    if (e.target.closest(".star-btn, .fc-clickable, button, a")) { dragging = false; return; }
+    dragging = true; moved = false; sx = e.clientX; dx = 0;
+    card.style.transition = "none";
+  });
+  window.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    dx = e.clientX - sx;
+    if (Math.abs(dx) > 8) moved = true;
+    card.style.transform = "translateX(" + dx + "px) rotate(" + (dx * 0.03) + "deg)";
+    card.classList.toggle("swipe-right", dx > 40);
+    card.classList.toggle("swipe-left", dx < -40);
+  });
+  window.addEventListener("pointerup", () => {
+    if (!dragging) return;
+    dragging = false;
+    card.classList.remove("swipe-right", "swipe-left");
+    const T = 60;
+    if (dx > T) return swipeOff(1);
+    if (dx < -T) return swipeOff(-1);
+    // not far enough → snap back; a still tap flips
+    card.style.transition = "transform 0.2s ease";
+    card.style.transform = "";
+    if (!moved) flipCard();
+  });
+  function swipeOff(dir) {
+    card.style.transition = "transform 0.25s ease";
+    card.style.transform = "translateX(" + (dir * 500) + "px) rotate(" + (dir * 15) + "deg)";
+    setTimeout(() => {
+      card.style.transition = "none";
+      card.style.transform = "";
+      markCard(dir > 0); // right = know
+    }, 220);
+  }
+})();
+
+/* ---- keyboard: → know, ← don't know, Space flip (only while studying) ---- */
+document.addEventListener("keydown", (e) => {
+  if (!document.body.classList.contains("flash-mode")) return;
+  if ($("#study").classList.contains("hidden")) return;
+  if ($("#flashcard").classList.contains("hidden")) return; // finished screen
+  const tag = (e.target && e.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea") return;
+  if (e.key === "ArrowRight") { e.preventDefault(); markCard(true); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); markCard(false); }
+  else if (e.key === " " || e.code === "Space") { e.preventDefault(); flipCard(); }
+});
 
 renderSetList();
 
