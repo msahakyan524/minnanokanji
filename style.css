@@ -229,7 +229,8 @@ body.flash-mode #flash-view { display: block; }
   width: 100%; min-height: 44px; margin: 16px 0 12px; padding: 8px 16px;
   font-size: 16px; border: 1px solid var(--line); border-radius: 12px;
 }
-.level-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.level-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.level-row .lvl-btn { flex: 1 1 auto; min-width: 56px; }
 .lvl-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 .chk { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--ink-soft); }
 .chk input { width: 20px; height: 20px; }

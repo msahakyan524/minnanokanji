@@ -1278,7 +1278,7 @@ $("#create-set").addEventListener("click", async () => {
   let allowed = null;
   if (addWords) {
     let hardest = 5;
-    for (const lvl of [3, 4, 5]) {
+    for (const lvl of [1, 2, 3, 4, 5]) {
       const list = new Set(await jlptList(String(lvl)));
       for (const ch of chosen) if (list.has(ch)) hardest = Math.min(hardest, lvl);
     }
