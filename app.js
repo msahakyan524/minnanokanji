@@ -584,33 +584,63 @@ async function recognizeKanji(canvas) {
   }
 }
 
+/* OCR.space — a free reader that is actually good at Japanese printed text */
+async function ocrSpace(dataUrl) {
+  const body = new URLSearchParams();
+  body.set("apikey", "helloworld"); // free demo key
+  body.set("language", "jpn");
+  body.set("OCREngine", "1");
+  body.set("scale", "true");
+  body.set("base64Image", dataUrl);
+  const r = await fetch("https://api.ocr.space/parse/image", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+  const j = await r.json();
+  if (j.IsErroredOnProcessing) {
+    throw new Error(Array.isArray(j.ErrorMessage) ? j.ErrorMessage.join(" ") : (j.ErrorMessage || "OCR error"));
+  }
+  const t = (j.ParsedResults && j.ParsedResults[0] && j.ParsedResults[0].ParsedText) || "";
+  return t.replace(/\s+/g, "");
+}
+
 /* shared: take an already-cleaned canvas, read it, show the result */
 async function runOCR(cleanCanvas) {
   previewPanel.classList.remove("hidden");
   previewImg.src = cleanCanvas.toDataURL(); // show exactly what we read
   ocrReview.classList.add("hidden");
   ocrStatus.className = "status";
-  ocrStatus.innerHTML = '<span class="spin"></span>Պատրաստում եմ ընթերցիչը…';
+  ocrStatus.innerHTML = '<span class="spin"></span>Կարդում եմ նշանը…';
   results.innerHTML = "";
 
+  let clean = "";
+  // 1) OCR.space first (best for Japanese)
   try {
-    await loadScript(TESSERACT_URL);
-    if (typeof Tesseract === "undefined") throw new Error("ընթերցիչը չբեռնվեց (ստուգիր ինտերնետը)");
-    ocrStatus.innerHTML = '<span class="spin"></span>Կարդում եմ նշանը…';
-
-    const clean = await recognizeKanji(cleanCanvas);
-    const found = [...clean].some(isLookup);
-    ocrStatus.textContent = found
-      ? "Ահա թե ինչ կարդացի — ուղղիր անհրաժեշտության դեպքում՝"
-      : "Չկարողացա հստակ կարդալ։ Մուտքագրիր ներքևում կամ փորձիր ավելի մեծ ու հստակ։";
-    ocrText.value = clean;
-    ocrReview.classList.remove("hidden");
-    if (found) analyze(clean); // show results right away; user can still fix + re-run
+    clean = await ocrSpace(cleanCanvas.toDataURL("image/png"));
   } catch (e) {
-    ocrStatus.className = "status error";
-    ocrStatus.textContent = "Չհաջողվեց կարդալ նկարը՝ " + e.message;
-    ocrReview.classList.remove("hidden");
+    clean = "";
   }
+  // 2) fall back to Tesseract only if OCR.space found no kanji/katakana
+  if (![...clean].some(isLookup)) {
+    try {
+      ocrStatus.innerHTML = '<span class="spin"></span>Կրկին փորձում եմ…';
+      await loadScript(TESSERACT_URL);
+      if (typeof Tesseract !== "undefined") {
+        const t = await recognizeKanji(cleanCanvas);
+        if ([...t].some(isLookup) || !clean) clean = t;
+      }
+    } catch (e) {}
+  }
+
+  const found = [...clean].some(isLookup);
+  ocrStatus.className = "status";
+  ocrStatus.textContent = found
+    ? "Ահա թե ինչ կարդացի — ուղղիր անհրաժեշտության դեպքում՝"
+    : "Չկարողացա հստակ կարդալ։ Մուտքագրիր ներքևում կամ փորձիր ավելի մեծ ու հստակ լուսանկար։";
+  ocrText.value = clean;
+  ocrReview.classList.remove("hidden");
+  if (found) analyze(clean); // show results right away; user can still fix + re-run
 }
 
 async function handleImage(file) {
