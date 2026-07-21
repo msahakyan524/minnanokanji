@@ -1119,12 +1119,12 @@ function renderSetList() {
   const stars = loadStars();
   const starCard = el("div", "set-card starred-set");
   starCard.appendChild(el("div", "set-info",
-    '<div class="set-title">' + SAKURA_JI + " Աստղանիշ</div><div class=\"set-sub\">" + stars.length + " քարտ</div>"));
+    '<div class="set-title">' + SAKURA_JI + " Հատուկ բառեր</div><div class=\"set-sub\">" + stars.length + " քարտ</div>"));
   const sStudy = el("button", "btn btn-primary", "Սովորել");
   sStudy.type = "button";
   sStudy.addEventListener("click", () => {
-    if (!stars.length) { toast("Աստղանիշը դատարկ է"); return; }
-    startStudy(stars.map((x) => ({ ...x, known: null })), "★ Աստղանիշ", null);
+    if (!stars.length) { toast("Հատուկ բառերը դատարկ են"); return; }
+    startStudy(stars.map((x) => ({ ...x, known: null })), "Հատուկ բառեր", null);
   });
   starCard.appendChild(sStudy);
   box.appendChild(starCard);
