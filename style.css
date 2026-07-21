@@ -308,3 +308,5 @@ main { max-width: 720px; margin: 0 auto; padding: 0 16px 32px; }
   .site-head h1 { font-size: 24px; }
   .kanji-glyph { font-size: 60px; }
 }
+
+.build-tag { margin-top: 8px; font-weight: 700; color: var(--accent); }
