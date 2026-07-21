@@ -1,0 +1,446 @@
+"use strict";
+
+/* ---------- tiny helpers ---------- */
+const $ = (s) => document.querySelector(s);
+const el = (tag, cls, html) => {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (html != null) n.innerHTML = html;
+  return n;
+};
+const isKanji = (ch) => {
+  const c = ch.codePointAt(0);
+  return (c >= 0x4e00 && c <= 0x9faf) || (c >= 0x3400 && c <= 0x4dbf);
+};
+const esc = (s) =>
+  String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* ---------- load a helper library on demand (never blocks page load) ---------- */
+const scriptCache = new Map();
+function loadScript(url) {
+  if (scriptCache.has(url)) return scriptCache.get(url);
+  const p = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = url;
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("could not load " + url));
+    document.head.appendChild(s);
+  });
+  scriptCache.set(url, p);
+  return p;
+}
+const TESSERACT_URL = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+const KUROMOJI_URL = "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js";
+
+/* ---------- caches so we never fetch the same thing twice ---------- */
+const kanjiCache = new Map();
+const wordCache = new Map();
+
+/* ---------- kanji info: try kanjiapi, fall back to Jotoba ---------- */
+async function getKanji(ch) {
+  if (kanjiCache.has(ch)) return kanjiCache.get(ch);
+  let data = null;
+  try {
+    const r = await fetch("https://kanjiapi.dev/v1/kanji/" + encodeURIComponent(ch));
+    if (r.ok) {
+      const j = await r.json();
+      data = {
+        char: ch,
+        meanings: j.meanings || [],
+        on: j.on_readings || [],
+        kun: j.kun_readings || [],
+        strokes: j.stroke_count || null,
+      };
+    }
+  } catch (e) {
+    /* fall through to Jotoba */
+  }
+  if (!data) {
+    try {
+      const j = await jotoba(ch);
+      const k = j.kanji && j.kanji[0];
+      if (k) {
+        data = {
+          char: ch,
+          meanings: k.meanings || [],
+          on: k.onyomi || [],
+          kun: k.kunyomi || [],
+          strokes: k.stroke_count || null,
+        };
+      }
+    } catch (e) {
+      /* give up */
+    }
+  }
+  kanjiCache.set(ch, data);
+  return data;
+}
+
+/* ---------- Jotoba word search (word meanings + example words) ---------- */
+async function jotoba(query) {
+  if (wordCache.has(query)) return wordCache.get(query);
+  const r = await fetch("https://jotoba.de/api/search/words", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, language: "English", no_english: false }),
+  });
+  if (!r.ok) throw new Error("jotoba " + r.status);
+  const j = await r.json();
+  wordCache.set(query, j);
+  return j;
+}
+
+/* example words that contain a kanji, from Jotoba */
+async function getExamples(ch, exclude) {
+  try {
+    const j = await jotoba(ch);
+    const out = [];
+    for (const w of j.words || []) {
+      const written = (w.reading && w.reading.kanji) || (w.reading && w.reading.kana);
+      if (!written || !written.includes(ch)) continue;
+      if (exclude && written === exclude) continue;
+      const sense = (w.senses || [])[0];
+      const gloss = sense ? (sense.glosses || []).slice(0, 3).join(", ") : "";
+      out.push({
+        written,
+        reading: (w.reading && w.reading.kana) || "",
+        meaning: gloss,
+        common: !!w.common,
+      });
+      if (out.length >= 6) break;
+    }
+    // prefer common words, keep at least two
+    out.sort((a, b) => (b.common ? 1 : 0) - (a.common ? 1 : 0));
+    return out.slice(0, 3);
+  } catch (e) {
+    return [];
+  }
+}
+
+/* whole-word meaning from Jotoba */
+async function getWordMeaning(surface, reading) {
+  try {
+    const j = await jotoba(surface);
+    let best = null;
+    for (const w of j.words || []) {
+      const written = (w.reading && w.reading.kanji) || (w.reading && w.reading.kana);
+      if (written === surface) { best = w; break; }
+      if (!best) best = w;
+    }
+    if (!best) return null;
+    const glosses = [];
+    for (const s of (best.senses || []).slice(0, 2)) {
+      glosses.push((s.glosses || []).slice(0, 3).join(", "));
+    }
+    return {
+      reading: reading || (best.reading && best.reading.kana) || "",
+      meaning: glosses.filter(Boolean).join("; "),
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+/* ---------- stroke-order diagram URL (KanjiVG via jsDelivr) ---------- */
+function strokeURL(ch) {
+  const hex = ch.codePointAt(0).toString(16).padStart(5, "0");
+  return "https://cdn.jsdelivr.net/gh/KanjiVG/kanjivg@master/kanji/" + hex + ".svg";
+}
+
+/* ---------- kuromoji tokenizer (lazy, optional, never blocks) ---------- */
+let tokenizerPromise = null;
+function getTokenizer() {
+  if (!tokenizerPromise) {
+    tokenizerPromise = loadScript(KUROMOJI_URL).then(
+      () =>
+        new Promise((resolve, reject) => {
+          if (typeof kuromoji === "undefined" || !kuromoji.builder) {
+            reject(new Error("grammar library not ready"));
+            return;
+          }
+          kuromoji
+            .builder({ dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/" })
+            .build((err, tok) => (err ? reject(err) : resolve(tok)));
+        })
+    );
+  }
+  return tokenizerPromise;
+}
+/* wait for the tokenizer, but give up after a while so nothing hangs forever */
+function getTokenizerOrNull(ms) {
+  return Promise.race([
+    getTokenizer().catch(() => null),
+    new Promise((res) => setTimeout(() => res(null), ms)),
+  ]);
+}
+
+/* ---------- passive form from a kuromoji verb token ---------- */
+const GODAN_MAP = {
+  "う": "わ", "く": "か", "ぐ": "が", "す": "さ", "つ": "た",
+  "ぬ": "な", "ぶ": "ば", "む": "ま", "る": "ら",
+};
+function makePassive(token) {
+  const base = token.basic_form;        // dictionary form, e.g. 書く
+  const type = token.conjugated_type || "";
+  if (!base || base === "*") return null;
+  const last = base.slice(-1);
+
+  if (type.startsWith("一段")) {
+    // 食べる -> 食べられる
+    if (last !== "る") return null;
+    return base.slice(0, -1) + "られる";
+  }
+  if (type.startsWith("五段")) {
+    const a = GODAN_MAP[last];
+    if (!a) return null;
+    return base.slice(0, -1) + a + "れる"; // 書く -> 書かれる
+  }
+  if (type.startsWith("サ変")) {
+    // 勉強する -> 勉強される,  する -> される
+    if (base.endsWith("する")) return base.slice(0, -2) + "される";
+    return null;
+  }
+  if (type.startsWith("カ変")) {
+    // 来る -> 来られる
+    return base.replace(/来る$/, "来られる").replace(/くる$/, "こられる");
+  }
+  return null;
+}
+
+/* ---------- rendering ---------- */
+const results = $("#results");
+
+async function renderKanji(ch, container) {
+  const card = el("div", "kanji-card");
+  card.appendChild(el("div", "notice", '<span class="spin"></span>Looking up ' + esc(ch) + "…"));
+  container.appendChild(card);
+
+  const [info, examples] = await Promise.all([getKanji(ch), getExamples(ch)]);
+  card.innerHTML = "";
+
+  if (!info) {
+    card.appendChild(el("div", "notice", "Couldn’t load dictionary data for " + esc(ch) + "."));
+    return;
+  }
+
+  const top = el("div", "kanji-top");
+  top.appendChild(el("div", "kanji-glyph", esc(ch)));
+
+  const facts = el("div", "kanji-facts");
+  facts.appendChild(el("p", "kanji-meaning", esc(info.meanings.join(", ") || "—")));
+
+  const readings = el("ul", "readings");
+  const onVals = info.on.length ? info.on.map((x) => "<span>" + esc(x) + "</span>").join("") : "—";
+  const kunVals = info.kun.length ? info.kun.map((x) => "<span>" + esc(x) + "</span>").join("") : "—";
+  readings.appendChild(el("li", null,
+    '<span class="reading-tag">On’yomi</span><span class="reading-vals" lang="ja">' + onVals + "</span>"));
+  readings.appendChild(el("li", null,
+    '<span class="reading-tag">Kun’yomi</span><span class="reading-vals" lang="ja">' + kunVals + "</span>"));
+  facts.appendChild(readings);
+  top.appendChild(facts);
+
+  // stroke order
+  const stroke = el("div", "stroke-wrap");
+  const img = el("img", "stroke-img");
+  img.loading = "lazy";
+  img.alt = "Stroke order for " + ch;
+  img.src = strokeURL(ch);
+  img.onerror = () => { stroke.innerHTML = '<p class="notice">No stroke diagram available.</p>'; };
+  stroke.appendChild(img);
+  if (info.strokes) stroke.appendChild(el("p", "stroke-count", info.strokes + " strokes"));
+  top.appendChild(stroke);
+
+  card.appendChild(top);
+
+  // examples
+  card.appendChild(el("p", "section-title", "Example words"));
+  if (examples.length) {
+    const ul = el("ul", "examples");
+    for (const ex of examples) {
+      const li = el("li");
+      li.appendChild(el("span", "ex-word", '<span lang="ja">' + esc(ex.written) + "</span>"));
+      if (ex.reading) li.appendChild(el("span", "ex-reading", '<span lang="ja">' + esc(ex.reading) + "</span>"));
+      if (ex.meaning) li.appendChild(el("p", "ex-meaning", esc(ex.meaning)));
+      ul.appendChild(li);
+    }
+    card.appendChild(ul);
+  } else {
+    card.appendChild(el("p", "notice", "No example words found."));
+  }
+}
+
+/* render a whole word (with meaning), then each of its kanji */
+async function renderWord(surface, reading, opts = {}) {
+  const block = el("div", "word-block");
+  if (opts.passiveOf) {
+    block.appendChild(el("span", "passive-tag", "Passive form"));
+  }
+  const head = el("div", "word-head");
+  head.appendChild(el("span", "word-surface", '<span lang="ja">' + esc(surface) + "</span>"));
+  block.appendChild(head);
+  const mp = el("p", "word-meaning", '<span class="spin"></span>Looking up meaning…');
+  block.appendChild(mp);
+  if (opts.passiveOf) {
+    block.appendChild(el("p", "passive-note",
+      "Passive of " + esc(opts.passiveOf) + " — “to be …-ed”. The kanji below are the same as in the plain verb."));
+  }
+  results.appendChild(block);
+
+  const wm = await getWordMeaning(surface, reading);
+  if (wm) {
+    head.appendChild(el("span", "word-reading", '<span lang="ja">' + esc(wm.reading) + "</span>"));
+    mp.className = "word-meaning";
+    mp.textContent = wm.meaning || "(no English meaning found)";
+  } else {
+    mp.className = "word-meaning notice";
+    mp.textContent = "No dictionary meaning found for this word.";
+  }
+
+  const kanjiList = [...surface].filter(isKanji);
+  const seen = new Set();
+  for (const ch of kanjiList) {
+    if (seen.has(ch)) continue;
+    seen.add(ch);
+    await renderKanji(ch, results);
+  }
+}
+
+/* ---------- main analysis ---------- */
+let running = false;
+async function analyze(text) {
+  text = (text || "").trim();
+  if (!text) return;
+  if (running) return;
+  running = true;
+  results.innerHTML = "";
+  const loading = el("div", "panel notice", '<span class="spin"></span>Reading the Japanese…');
+  results.appendChild(loading);
+
+  try {
+    let tokens = null;
+    const tok = await getTokenizerOrNull(8000);
+    if (tok) {
+      try { tokens = tok.tokenize(text); } catch (e) { tokens = null; }
+    }
+    loading.remove();
+
+    if (tokens) {
+      const done = new Set();
+      for (const t of tokens) {
+        const surface = t.surface_form;
+        if (!surface || !surface.trim()) continue;
+        const hasKanji = [...surface].some(isKanji);
+
+        // verbs with okurigana -> show plain word + passive form
+        if (t.pos === "動詞" && hasKanji) {
+          const reading = t.reading || "";
+          await renderWord(t.basic_form && t.basic_form !== "*" ? t.basic_form : surface, "", {});
+          const passive = makePassive(t);
+          if (passive) {
+            await renderWord(passive, "", { passiveOf: t.basic_form || surface });
+          }
+          continue;
+        }
+
+        // any other chunk that contains kanji -> treat as a word
+        if (hasKanji) {
+          const key = surface;
+          if (done.has(key)) continue;
+          done.add(key);
+          await renderWord(surface, t.reading || "", {});
+        }
+      }
+      // nothing had kanji? fall back to scanning loose kanji
+      if (!results.children.length) await scanLooseKanji(text);
+    } else {
+      await scanLooseKanji(text);
+    }
+
+    if (!results.children.length) {
+      results.appendChild(el("div", "panel error-box", "No kanji found in that text. Try a clearer photo or type the characters directly."));
+    }
+  } catch (e) {
+    results.innerHTML = "";
+    results.appendChild(el("div", "panel error-box", "Something went wrong: " + esc(e.message)));
+  } finally {
+    running = false;
+  }
+}
+
+/* fallback: just list every kanji character */
+async function scanLooseKanji(text) {
+  const seen = new Set();
+  for (const ch of text) {
+    if (!isKanji(ch) || seen.has(ch)) continue;
+    seen.add(ch);
+    await renderKanji(ch, results);
+  }
+}
+
+/* ---------- OCR ---------- */
+const previewPanel = $("#preview-panel");
+const previewImg = $("#preview-img");
+const ocrStatus = $("#ocr-status");
+const ocrReview = $("#ocr-review");
+const ocrText = $("#ocr-text");
+
+async function handleImage(file) {
+  if (!file || !file.type.startsWith("image/")) return;
+  previewPanel.classList.remove("hidden");
+  previewImg.src = URL.createObjectURL(file);
+  ocrReview.classList.add("hidden");
+  ocrStatus.className = "status";
+  ocrStatus.innerHTML = '<span class="spin"></span>Getting the text-reader ready…';
+  results.innerHTML = "";
+
+  try {
+    await loadScript(TESSERACT_URL);
+    if (typeof Tesseract === "undefined") throw new Error("text-reader could not load (check your internet)");
+    ocrStatus.innerHTML = '<span class="spin"></span>Reading the characters from your image…';
+    const { data } = await Tesseract.recognize(file, "jpn", {
+      logger: (m) => {
+        if (m.status === "recognizing text") {
+          ocrStatus.innerHTML = '<span class="spin"></span>Reading… ' + Math.round(m.progress * 100) + "%";
+        }
+      },
+    });
+    const clean = (data.text || "").replace(/\s+/g, "");
+    ocrStatus.textContent = clean ? "Here’s what I read:" : "I couldn’t read any characters — try a clearer, closer photo.";
+    if (clean) {
+      ocrText.value = clean;
+      ocrReview.classList.remove("hidden");
+      analyze(clean); // show results right away; user can still fix + re-run
+    }
+  } catch (e) {
+    ocrStatus.className = "status error";
+    ocrStatus.textContent = "Couldn’t read the image: " + e.message;
+  }
+}
+
+/* ---------- wiring ---------- */
+$("#file-input").addEventListener("change", (e) => handleImage(e.target.files[0]));
+$("#camera-input").addEventListener("change", (e) => handleImage(e.target.files[0]));
+$("#analyze-btn").addEventListener("click", () => analyze($("#text-input").value));
+$("#text-input").addEventListener("keydown", (e) => { if (e.key === "Enter") analyze(e.target.value); });
+$("#ocr-analyze-btn").addEventListener("click", () => analyze(ocrText.value));
+ocrText.addEventListener("keydown", (e) => { if (e.key === "Enter") analyze(e.target.value); });
+
+const drop = $("#drop");
+["dragenter", "dragover"].forEach((ev) =>
+  drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("dragover"); }));
+["dragleave", "drop"].forEach((ev) =>
+  drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("dragover"); }));
+drop.addEventListener("drop", (e) => {
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) handleImage(f);
+});
+
+/* if anything ever crashes, show it on the page instead of failing silently */
+window.addEventListener("error", (e) => {
+  if (!results.children.length) {
+    results.appendChild(el("div", "panel error-box",
+      "A script error occurred: " + esc(e.message || "unknown") +
+      ". The page may not have loaded fully — please refresh."));
+  }
+});

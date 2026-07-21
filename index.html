@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kanji Reader</title>
+<link rel="preconnect" href="https://kanjiapi.dev">
+<link rel="preconnect" href="https://jotoba.de">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-head">
+    <h1 lang="ja">漢字 <span>Kanji Reader</span></h1>
+    <p class="tagline">Photograph or upload Japanese text. Get the meaning, readings, examples and stroke order for every kanji.</p>
+  </header>
+
+  <main>
+    <!-- Input -->
+    <section class="panel" id="input-panel">
+      <div class="uploader" id="drop">
+        <label class="file-field">
+          <span class="file-emoji">📷</span>
+          <span class="file-text">Take a photo<small>opens your camera on a phone</small></span>
+          <input type="file" accept="image/*" capture="environment" id="camera-input">
+        </label>
+        <label class="file-field">
+          <span class="file-emoji">🖼️</span>
+          <span class="file-text">Choose an image<small>pick a picture from this device</small></span>
+          <input type="file" accept="image/*" id="file-input">
+        </label>
+      </div>
+
+      <div class="type-row">
+        <span class="type-label">…or just type / paste Japanese:</span>
+        <div class="type-fields">
+          <input type="text" id="text-input" lang="ja" placeholder="例：日本語を勉強する" autocomplete="off">
+          <button class="btn btn-primary" id="analyze-btn">Analyze</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Preview + OCR status -->
+    <section class="panel hidden" id="preview-panel">
+      <img id="preview-img" alt="Your image">
+      <div id="ocr-status" class="status"></div>
+      <div id="ocr-review" class="hidden">
+        <label class="review-label" for="ocr-text">Recognised text — fix any mistakes, then analyze:</label>
+        <div class="type-fields">
+          <input type="text" id="ocr-text" lang="ja" autocomplete="off">
+          <button class="btn btn-primary" id="ocr-analyze-btn">Analyze</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="results" aria-live="polite"></section>
+  </main>
+
+  <footer class="site-foot">
+    <p>Dictionary data from <a href="https://kanjiapi.dev" target="_blank" rel="noopener">kanjiapi.dev</a> &amp;
+       <a href="https://jotoba.de" target="_blank" rel="noopener">Jotoba</a>.
+       Stroke diagrams from <a href="https://kanjivg.tagaini.net" target="_blank" rel="noopener">KanjiVG</a>.
+       Text reading by Tesseract. Runs entirely in your browser.</p>
+  </footer>
+
+  <!-- Only our own tiny script loads up front, so the page ALWAYS appears.
+       The big helper libraries are fetched later, only when needed. -->
+  <script src="app.js" defer></script>
+</body>
+</html>
