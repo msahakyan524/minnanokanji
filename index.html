@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="favicon.svg?v=1">
 <link rel="preconnect" href="https://kanjiapi.dev">
 <link rel="preconnect" href="https://jotoba.de">
-<link rel="stylesheet" href="style.css?v=26">
+<link rel="stylesheet" href="style.css?v=27">
 </head>
 <body>
   <div class="sakura" aria-hidden="true">
@@ -20,6 +20,7 @@
   </div>
 
   <header class="site-head">
+    <button type="button" id="open-flashcards" class="flash-tab">Ֆլեշքարտեր</button>
     <h1 class="site-title"><span lang="ja">Միննա の</span><svg class="kanji-flower" viewBox="0 0 66 64" role="img" aria-label="漢字" xmlns="http://www.w3.org/2000/svg">
         <g fill="#ffb0d2" stroke="#ff8fbb" stroke-width="1.5" stroke-linejoin="round">
           <path d="M33 34 C 19 32, 17 15, 25.5 9 C 28.5 6.5, 31 11, 33 13 C 35 11, 37.5 6.5, 40.5 9 C 49 15, 47 32, 33 34 Z" transform="rotate(0 33 32)"/>
@@ -37,6 +38,50 @@
   </header>
 
   <main>
+    <!-- Flashcards -->
+    <section id="flash-view">
+      <div class="flash-head">
+        <h2>Ֆլեշքարտեր</h2>
+        <button type="button" id="flash-close" class="btn">Փակել</button>
+      </div>
+
+      <div id="set-list" class="set-list"></div>
+
+      <details id="new-set" class="new-set" open>
+        <summary>Նոր հավաքածու ստեղծել</summary>
+        <input type="text" id="set-name" class="set-name" placeholder="Հավաքածուի անուն" autocomplete="off">
+        <div class="level-row">
+          <button type="button" class="btn lvl-btn" data-lvl="5">N5</button>
+          <button type="button" class="btn lvl-btn" data-lvl="4">N4</button>
+          <button type="button" class="btn lvl-btn" data-lvl="3">N3</button>
+        </div>
+        <label class="chk"><input type="checkbox" id="add-words"> Ավելացնել նաև այս կանջիներով բառեր</label>
+        <p id="pick-hint" class="notice">Ընտրիր մակարդակ, ապա սեղմիր կանջիների վրա։</p>
+        <div id="kanji-grid" class="kanji-grid"></div>
+        <button type="button" class="btn btn-primary" id="create-set" disabled>Ստեղծել հավաքածու</button>
+      </details>
+
+      <!-- Study mode -->
+      <div id="study" class="hidden">
+        <div class="study-head">
+          <button type="button" id="study-back" class="btn">Ետ</button>
+          <span id="study-progress" class="study-progress"></span>
+        </div>
+        <div id="flashcard" class="flashcard">
+          <div class="fc-inner">
+            <div class="fc-face fc-front"></div>
+            <div class="fc-face fc-back"></div>
+          </div>
+        </div>
+        <div class="btn-row study-controls">
+          <button type="button" id="mark-unknown" class="btn">Չգիտեմ</button>
+          <button type="button" id="flip-card" class="btn">Շրջել</button>
+          <button type="button" id="mark-known" class="btn btn-primary">Գիտեմ</button>
+        </div>
+        <div id="study-done" class="hidden"></div>
+      </div>
+    </section>
+
     <section class="panel" id="input-panel">
       <!-- Tabs (upper left) -->
       <div class="tabs" role="tablist">
@@ -138,6 +183,6 @@
        Ձեռագիրը ճանաչում է Google-ը։ Ամբողջությամբ աշխատում է քո browser-ում։</p>
   </footer>
 
-  <script src="app.js?v=26" defer></script>
+  <script src="app.js?v=27" defer></script>
 </body>
 </html>

@@ -334,11 +334,15 @@ async function renderKanji(ch, container) {
   const top = el("div", "kanji-top");
   const glyphWrap = el("div", "glyph-wrap");
   glyphWrap.appendChild(copyable(el("div", "kanji-glyph", esc(ch)), ch));
-  glyphWrap.appendChild(speakerBtn(ch));
+  const kanjiReading = [...(info.on || []), ...(info.kun || [])].join("・");
+  const meaningText = info.meanings.join(", ");
+  const iconRow = el("div", "icon-row");
+  iconRow.appendChild(speakerBtn(ch));
+  iconRow.appendChild(starBtn({ type: "kanji", ja: ch, reading: kanjiReading, meaning: meaningText }));
+  glyphWrap.appendChild(iconRow);
   top.appendChild(glyphWrap);
 
   const facts = el("div", "kanji-facts");
-  const meaningText = info.meanings.join(", ");
   facts.appendChild(meaningBlock(meaningText, "kanji-meaning"));
 
   const readings = el("ul", "readings");
@@ -411,6 +415,7 @@ async function renderWord(surface, reading, opts = {}) {
   // always show a reading (for katakana this is the kana itself)
   const shownReading = (wm && wm.reading) || reading || (isKatakana(surface[0]) ? surface : "");
   if (shownReading) readingSpan.innerHTML = '<span lang="ja">' + esc(shownReading) + "</span>";
+  head.appendChild(starBtn({ type: "word", ja: surface, reading: shownReading, meaning: (wm && wm.meaning) || "" }));
   if (wm && wm.meaning) {
     mp.replaceWith(meaningBlock(wm.meaning));
   } else {
@@ -1034,6 +1039,224 @@ $("#history-clear").addEventListener("click", () => {
   renderHistory();
 });
 restoreState();
+
+/* ==================== FLASHCARDS (Quizlet-style) ==================== */
+/* All sets live in sessionStorage → they survive refresh, vanish when the tab
+   is closed. */
+function fcLoad(key) { try { return JSON.parse(sessionStorage.getItem(key) || "[]"); } catch (e) { return []; } }
+function fcSave(key, v) { try { sessionStorage.setItem(key, JSON.stringify(v)); } catch (e) {} }
+const SETS_KEY = "mk_fc_sets";
+const STARS_KEY = "mk_fc_stars";
+const loadSets = () => fcLoad(SETS_KEY);
+const saveSets = (s) => fcSave(SETS_KEY, s);
+const loadStars = () => fcLoad(STARS_KEY);
+const saveStars = (s) => fcSave(STARS_KEY, s);
+
+/* ---- sakura star button ---- */
+const SAKURA_STAR =
+  '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">' +
+  '<path fill="currentColor" d="M12 2.6c1.1 0 2 1.5 2.05 3.2 1.5-.9 3.2-.7 3.75.4.55 1.1-.3 2.6-1.8 3.4 1.6.5 2.6 1.8 2.15 3-.45 1.15-2.15 1.55-3.75 1.05.5 1.6.05 3.2-1.1 3.6-1.15.4-2.55-.65-3.2-2.15-.65 1.5-2.05 2.55-3.2 2.15-1.15-.4-1.6-2-1.1-3.6-1.6.5-3.3.1-3.75-1.05-.45-1.2.55-2.5 2.15-3-1.5-.8-2.35-2.3-1.8-3.4.55-1.1 2.25-1.3 3.75-.4C10 4.1 10.9 2.6 12 2.6z"/>' +
+  '<circle cx="12" cy="12" r="2.2" fill="#fff" opacity=".6"/></svg>';
+const sameItem = (a, b) => a.type === b.type && a.ja === b.ja;
+const isStarred = (item) => loadStars().some((s) => sameItem(s, item));
+function toggleStar(item, btn) {
+  const stars = loadStars();
+  const i = stars.findIndex((s) => sameItem(s, item));
+  if (i >= 0) { stars.splice(i, 1); if (btn) btn.classList.remove("starred"); toast("Հանվեց աստղանիշից"); }
+  else {
+    stars.unshift({ type: item.type, ja: item.ja, reading: item.reading, meaning: item.meaning });
+    if (btn) btn.classList.add("starred"); toast("Ավելացվեց աստղանիշին");
+  }
+  saveStars(stars);
+  if (document.body.classList.contains("flash-mode")) renderSetList();
+}
+function starBtn(item, extraCls) {
+  const b = el("button", "star-btn" + (extraCls ? " " + extraCls : "") + (isStarred(item) ? " starred" : ""), SAKURA_STAR);
+  b.type = "button";
+  b.title = "Աստղանիշ՝ կրկնելու համար";
+  b.setAttribute("aria-label", "Աստղանիշ");
+  b.addEventListener("click", (e) => { e.stopPropagation(); toggleStar(item, b); });
+  return b;
+}
+
+/* ---- open / close ---- */
+function openFlash() { document.body.classList.add("flash-mode"); $("#study").classList.add("hidden"); renderSetList(); window.scrollTo(0, 0); }
+function closeFlash() { document.body.classList.remove("flash-mode"); }
+$("#open-flashcards").addEventListener("click", openFlash);
+$("#flash-close").addEventListener("click", closeFlash);
+
+/* ---- set list ---- */
+function renderSetList() {
+  const box = $("#set-list");
+  if (!box) return;
+  box.innerHTML = "";
+
+  const stars = loadStars();
+  const starCard = el("div", "set-card starred-set");
+  starCard.appendChild(el("div", "set-info",
+    '<div class="set-title">★ Աստղանիշ</div><div class="set-sub">' + stars.length + " քարտ</div>"));
+  const sStudy = el("button", "btn btn-primary", "Սովորել");
+  sStudy.type = "button";
+  sStudy.addEventListener("click", () => {
+    if (!stars.length) { toast("Աստղանիշը դատարկ է"); return; }
+    startStudy(stars.map((x) => ({ ...x, known: null })), "★ Աստղանիշ", null);
+  });
+  starCard.appendChild(sStudy);
+  box.appendChild(starCard);
+
+  loadSets().forEach((set) => {
+    const card = el("div", "set-card");
+    const known = set.items.filter((i) => i.known === true).length;
+    card.appendChild(el("div", "set-info",
+      '<div class="set-title">' + esc(set.name) + "</div><div class=\"set-sub\">" +
+      set.items.length + " քարտ · գիտեմ՝ " + known + "</div>"));
+    const study = el("button", "btn btn-primary", "Սովորել");
+    study.type = "button";
+    study.addEventListener("click", () => startStudy(set.items, set.name, set));
+    const del = el("button", "btn", "Ջնջել");
+    del.type = "button";
+    del.addEventListener("click", () => { saveSets(loadSets().filter((s) => s.id !== set.id)); renderSetList(); });
+    card.appendChild(study);
+    card.appendChild(del);
+    box.appendChild(card);
+  });
+}
+
+/* ---- new set: level picker + kanji grid ---- */
+let selectedKanji = new Set();
+async function loadLevel(lvl, btn) {
+  document.querySelectorAll(".lvl-btn").forEach((b) => b.classList.toggle("active", b === btn));
+  selectedKanji = new Set();
+  updateCreateBtn();
+  const grid = $("#kanji-grid");
+  grid.innerHTML = '<p class="notice">Բեռնում…</p>';
+  try {
+    const r = await fetch("https://kanjiapi.dev/v1/kanji/jlpt-" + lvl);
+    const chars = await r.json();
+    grid.innerHTML = "";
+    chars.forEach((ch) => {
+      const t = el("div", "kg-tile", '<span lang="ja">' + esc(ch) + "</span>");
+      t.addEventListener("click", () => {
+        if (selectedKanji.has(ch)) { selectedKanji.delete(ch); t.classList.remove("sel"); }
+        else { selectedKanji.add(ch); t.classList.add("sel"); }
+        updateCreateBtn();
+      });
+      grid.appendChild(t);
+    });
+    $("#pick-hint").textContent = "Սեղմիր կանջիների վրա՝ ընտրելու համար (" + chars.length + " կանջի)։";
+  } catch (e) {
+    grid.innerHTML = '<p class="notice">Չհաջողվեց բեռնել մակարդակը։</p>';
+  }
+}
+function updateCreateBtn() {
+  const b = $("#create-set");
+  b.disabled = selectedKanji.size === 0;
+  b.textContent = selectedKanji.size ? "Ստեղծել հավաքածու (" + selectedKanji.size + ")" : "Ստեղծել հավաքածու";
+}
+document.querySelectorAll(".lvl-btn").forEach((b) => b.addEventListener("click", () => loadLevel(b.dataset.lvl, b)));
+
+$("#create-set").addEventListener("click", async () => {
+  const chosen = [...selectedKanji];
+  if (!chosen.length) return;
+  const name = $("#set-name").value.trim() || ("Հավաքածու " + (loadSets().length + 1));
+  const addWords = $("#add-words").checked;
+  const btn = $("#create-set");
+  btn.disabled = true;
+  btn.textContent = "Ստեղծում…";
+  const items = [];
+  for (const ch of chosen) {
+    const info = await getKanji(ch);
+    if (info) {
+      const reading = [...(info.on || []), ...(info.kun || [])].join("・");
+      items.push({ type: "kanji", ja: ch, reading, meaning: (info.meanings || []).join(", "), known: null });
+    }
+    if (addWords) {
+      const ex = await getExamples(ch);
+      ex.forEach((w) => items.push({ type: "word", ja: w.written, reading: w.reading, meaning: w.meaning, known: null }));
+    }
+  }
+  const sets = loadSets();
+  sets.unshift({ id: "s" + Date.now(), name, items });
+  saveSets(sets);
+  // reset the form
+  $("#set-name").value = "";
+  $("#add-words").checked = false;
+  selectedKanji = new Set();
+  $("#kanji-grid").innerHTML = "";
+  $("#pick-hint").textContent = "Ընտրիր մակարդակ, ապա սեղմիր կանջիների վրա։";
+  document.querySelectorAll(".lvl-btn").forEach((b) => b.classList.remove("active"));
+  btn.textContent = "Ստեղծել հավաքածու";
+  btn.disabled = true;
+  renderSetList();
+  toast("Հավաքածուն ստեղծվեց՝ " + name);
+});
+
+/* ---- study mode (flip cards) ---- */
+let study = { items: [], idx: 0, set: null, title: "" };
+function startStudy(items, title, setRef) {
+  study = { items, idx: 0, set: setRef || null, title };
+  $("#study-done").classList.add("hidden");
+  $("#flashcard").classList.remove("hidden");
+  const ctr = document.querySelector(".study-controls");
+  if (ctr) ctr.style.display = "";
+  $("#study").classList.remove("hidden");
+  showCard();
+  window.scrollTo(0, 0);
+}
+function showCard() {
+  const fc = $("#flashcard");
+  fc.classList.remove("flipped");
+  const it = study.items[study.idx];
+  $("#study-progress").textContent = (study.idx + 1) + " / " + study.items.length + " · " + study.title;
+  const front = fc.querySelector(".fc-front");
+  const back = fc.querySelector(".fc-back");
+  front.innerHTML = "";
+  back.innerHTML = "";
+  front.appendChild(starBtn(it, "fc-star"));
+  front.appendChild(el("div", "fc-ja" + (it.type === "word" ? " word" : ""), '<span lang="ja">' + esc(it.ja) + "</span>"));
+  front.appendChild(el("p", "fc-hint", "Սեղմիր՝ շրջելու համար"));
+  if (it.reading) back.appendChild(el("div", "fc-reading", '<span lang="ja">' + esc(it.reading) + "</span>"));
+  back.appendChild(meaningBlock(it.meaning));
+}
+function flipCard() { $("#flashcard").classList.toggle("flipped"); }
+function markCard(known) {
+  const it = study.items[study.idx];
+  it.known = known;
+  if (study.set) {
+    saveSets(loadSets().map((s) => (s.id === study.set.id ? { ...s, items: study.items } : s)));
+  }
+  if (study.idx < study.items.length - 1) { study.idx++; showCard(); }
+  else finishStudy();
+}
+function finishStudy() {
+  $("#flashcard").classList.add("hidden");
+  const ctr = document.querySelector(".study-controls");
+  if (ctr) ctr.style.display = "none";
+  const known = study.items.filter((i) => i.known === true).length;
+  const unknown = study.items.filter((i) => i.known === false);
+  const done = $("#study-done");
+  done.classList.remove("hidden");
+  done.innerHTML = "";
+  done.appendChild(el("p", "fc-reading", "Ավարտ 🎉"));
+  done.appendChild(el("p", null, "Գիտեմ՝ " + known + " · Չգիտեմ՝ " + unknown.length));
+  if (unknown.length) {
+    const again = el("button", "btn btn-primary", "Կրկնել չիմացածները (" + unknown.length + ")");
+    again.type = "button";
+    again.addEventListener("click", () => startStudy(unknown.map((x) => ({ ...x, known: null })), study.title + " · կրկնում", study.set));
+    done.appendChild(again);
+  }
+  const back = el("button", "btn", "Դեպի հավաքածուներ");
+  back.type = "button";
+  back.addEventListener("click", () => { $("#study").classList.add("hidden"); renderSetList(); });
+  done.appendChild(back);
+}
+$("#flashcard").addEventListener("click", flipCard);
+$("#flip-card").addEventListener("click", flipCard);
+$("#mark-known").addEventListener("click", () => markCard(true));
+$("#mark-unknown").addEventListener("click", () => markCard(false));
+$("#study-back").addEventListener("click", () => { $("#study").classList.add("hidden"); renderSetList(); });
+
+renderSetList();
 
 /* NOTE: the heavy 15MB grammar dictionary is intentionally NOT loaded — it made
    phones freeze mid-drawing and the page crawl. Kanji lookup works without it.
