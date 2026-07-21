@@ -246,6 +246,21 @@ body.flash-mode #flash-view { display: block; }
 }
 .kg-tile.sel { background: var(--accent); color: #fff; border-color: var(--accent); }
 
+/* Edit set */
+.edit-label { font-weight: 700; color: var(--ink-soft); font-size: 14px; margin: 16px 0 8px; }
+.edit-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.edit-row {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px;
+}
+.edit-ja { font-size: 22px; }
+.edit-read { font-size: 16px; color: var(--accent-ink); }
+.edit-rm {
+  border: none; background: none; color: #c0392b; font-size: 20px;
+  cursor: pointer; width: 36px; height: 36px; line-height: 1;
+}
+.edit-rm:hover { color: #e74c3c; }
+
 /* Study */
 .study-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .study-progress { color: var(--ink-soft); font-weight: 700; }

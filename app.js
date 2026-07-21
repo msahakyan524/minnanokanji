@@ -1105,7 +1105,15 @@ function starBtn(item, extraCls) {
 }
 
 /* ---- open / close ---- */
-function openFlash() { document.body.classList.add("flash-mode"); $("#study").classList.add("hidden"); renderSetList(); window.scrollTo(0, 0); }
+function openFlash() {
+  document.body.classList.add("flash-mode");
+  $("#study").classList.add("hidden");
+  $("#set-edit").classList.add("hidden");
+  $("#set-list").style.display = "";
+  $("#new-set").style.display = "";
+  renderSetList();
+  window.scrollTo(0, 0);
+}
 function closeFlash() { document.body.classList.remove("flash-mode"); }
 $("#open-flashcards").addEventListener("click", openFlash);
 $("#flash-close").addEventListener("click", closeFlash);
@@ -1138,10 +1146,14 @@ function renderSetList() {
     const study = el("button", "btn btn-primary", "Սովորել");
     study.type = "button";
     study.addEventListener("click", () => startStudy(set.items, set.name, set));
+    const edit = el("button", "btn", "Խմբագրել");
+    edit.type = "button";
+    edit.addEventListener("click", () => openEditSet(set));
     const del = el("button", "btn", "Ջնջել");
     del.type = "button";
     del.addEventListener("click", () => { saveSets(loadSets().filter((s) => s.id !== set.id)); renderSetList(); });
     card.appendChild(study);
+    card.appendChild(edit);
     card.appendChild(del);
     box.appendChild(card);
   });
@@ -1293,6 +1305,52 @@ function finishStudy() {
   back.addEventListener("click", () => { $("#study").classList.add("hidden"); renderSetList(); });
   done.appendChild(back);
 }
+/* ---- edit a set (rename + remove cards) ---- */
+let editState = { id: null, name: "", items: [] };
+function openEditSet(set) {
+  editState = { id: set.id, name: set.name, items: set.items.slice() };
+  $("#set-list").style.display = "none";
+  $("#new-set").style.display = "none";
+  $("#study").classList.add("hidden");
+  $("#set-edit").classList.remove("hidden");
+  $("#edit-name").value = set.name;
+  renderEditItems();
+  window.scrollTo(0, 0);
+}
+function renderEditItems() {
+  const box = $("#edit-items");
+  box.innerHTML = "";
+  if (!editState.items.length) {
+    box.appendChild(el("p", "notice", "Քարտեր չկան։"));
+    return;
+  }
+  editState.items.forEach((it, i) => {
+    const row = el("div", "edit-row");
+    row.appendChild(el("span", "edit-ja",
+      '<span lang="ja">' + esc(it.ja) + "</span>" +
+      (it.reading ? ' <span class="edit-read" lang="ja">' + esc(it.reading) + "</span>" : "")));
+    const rm = el("button", "edit-rm", "✕");
+    rm.type = "button";
+    rm.title = "Հեռացնել";
+    rm.addEventListener("click", () => { editState.items.splice(i, 1); renderEditItems(); });
+    row.appendChild(rm);
+    box.appendChild(row);
+  });
+}
+function closeEdit() {
+  $("#set-edit").classList.add("hidden");
+  $("#set-list").style.display = "";
+  $("#new-set").style.display = "";
+  renderSetList();
+}
+$("#edit-save").addEventListener("click", () => {
+  const name = $("#edit-name").value.trim() || editState.name;
+  saveSets(loadSets().map((s) => (s.id === editState.id ? { ...s, name, items: editState.items } : s)));
+  toast("Պահպանվեց");
+  closeEdit();
+});
+$("#edit-back").addEventListener("click", closeEdit);
+
 $("#flashcard").addEventListener("click", flipCard);
 $("#flip-card").addEventListener("click", flipCard);
 $("#mark-known").addEventListener("click", () => markCard(true));
