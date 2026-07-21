@@ -1134,11 +1134,13 @@ function showFlashUI() {
   renderSetList();
   window.scrollTo(0, 0);
 }
+function rememberView(v) { try { sessionStorage.setItem("mk_view", v); } catch (e) {} }
 function openFlash() {
   showFlashUI();
-  pushView(() => { document.body.classList.remove("flash-mode"); });
+  rememberView("flash");
+  pushView(() => { document.body.classList.remove("flash-mode"); rememberView("home"); });
 }
-function closeFlash() { document.body.classList.remove("flash-mode"); }
+function closeFlash() { document.body.classList.remove("flash-mode"); rememberView("home"); }
 $("#open-flashcards").addEventListener("click", openFlash);
 $("#flash-close").addEventListener("click", goBack);
 
@@ -1595,6 +1597,9 @@ document.addEventListener("keydown", (e) => {
 });
 
 renderSetList();
+
+/* on refresh, reopen Flashcards if that's where the user was */
+try { if (sessionStorage.getItem("mk_view") === "flash") openFlash(); } catch (e) {}
 
 /* NOTE: the heavy 15MB grammar dictionary is intentionally NOT loaded — it made
    phones freeze mid-drawing and the page crawl. Kanji lookup works without it.
