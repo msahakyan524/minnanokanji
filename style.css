@@ -1,14 +1,14 @@
 :root {
-  --ink: #1c1b22;
-  --ink-soft: #55535f;
-  --line: #e4e2ec;
-  --bg: #f6f5fb;
+  --ink: #33262c;
+  --ink-soft: #6d5560;
+  --line: #f0dbe4;
+  --bg: #fff5f8;
   --card: #ffffff;
-  --accent: #4f46e5;
-  --accent-soft: #eef0ff;
-  --accent-ink: #3730a3;
+  --accent: #c2185b;
+  --accent-soft: #fde4ee;
+  --accent-ink: #8e153f;
   --good: #0f8a5f;
-  --shadow: 0 4px 20px rgba(28, 27, 34, 0.06);
+  --shadow: 0 6px 24px rgba(194, 24, 91, 0.10);
   --radius: 16px;
 }
 
@@ -20,8 +20,52 @@ body {
   font-size: 16px;
   line-height: 1.5;
   color: var(--ink);
-  background: var(--bg);
+  background: linear-gradient(180deg, #fff5f8 0%, #ffeaf1 45%, #fef3ec 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
   -webkit-text-size-adjust: 100%;
+}
+
+/* Cherry-blossom petals falling behind everything */
+.sakura {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: -1;
+}
+.petal {
+  position: absolute;
+  top: -24px;
+  width: 14px;
+  height: 14px;
+  background: radial-gradient(circle at 30% 30%, #ffd7e6, #ffa9c9);
+  border-radius: 100% 0 100% 0;
+  opacity: 0;
+  animation: fall linear infinite;
+}
+@keyframes fall {
+  0%   { transform: translateY(-5vh) translateX(0) rotate(0deg); opacity: 0; }
+  10%  { opacity: 0.9; }
+  100% { transform: translateY(105vh) translateX(40px) rotate(360deg); opacity: 0.75; }
+}
+.petal:nth-child(1)  { left: 5%;  animation-duration: 11s; animation-delay: 0s;   }
+.petal:nth-child(2)  { left: 13%; animation-duration: 14s; animation-delay: 2s;   width: 10px; height: 10px; }
+.petal:nth-child(3)  { left: 22%; animation-duration: 9s;  animation-delay: 4s;   }
+.petal:nth-child(4)  { left: 31%; animation-duration: 13s; animation-delay: 1s;   width: 16px; height: 16px; }
+.petal:nth-child(5)  { left: 40%; animation-duration: 10s; animation-delay: 3s;   }
+.petal:nth-child(6)  { left: 49%; animation-duration: 15s; animation-delay: 5s;   width: 11px; height: 11px; }
+.petal:nth-child(7)  { left: 58%; animation-duration: 12s; animation-delay: 0.5s; }
+.petal:nth-child(8)  { left: 66%; animation-duration: 9s;  animation-delay: 2.5s; width: 16px; height: 16px; }
+.petal:nth-child(9)  { left: 74%; animation-duration: 14s; animation-delay: 4.5s; }
+.petal:nth-child(10) { left: 82%; animation-duration: 11s; animation-delay: 1.5s; width: 10px; height: 10px; }
+.petal:nth-child(11) { left: 89%; animation-duration: 13s; animation-delay: 3.5s; }
+.petal:nth-child(12) { left: 95%; animation-duration: 10s; animation-delay: 6s;   width: 15px; height: 15px; }
+.petal:nth-child(13) { left: 35%; animation-duration: 16s; animation-delay: 7s;   }
+.petal:nth-child(14) { left: 62%; animation-duration: 12s; animation-delay: 8s;   width: 12px; height: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .petal { animation: none; display: none; }
 }
 
 main { max-width: 720px; margin: 0 auto; padding: 0 16px 32px; }

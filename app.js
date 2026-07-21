@@ -12,6 +12,12 @@ const isKanji = (ch) => {
   const c = ch.codePointAt(0);
   return (c >= 0x4e00 && c <= 0x9faf) || (c >= 0x3400 && c <= 0x4dbf);
 };
+const isKatakana = (ch) => {
+  const c = ch.codePointAt(0);
+  return (c >= 0x30a0 && c <= 0x30ff) || (c >= 0xff66 && c <= 0xff9f); // incl. half-width
+};
+// a character worth looking up on its own: kanji or katakana
+const isLookup = (ch) => isKanji(ch) || isKatakana(ch);
 const esc = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -389,17 +395,18 @@ async function analyzeWithoutGrammar(text) {
   const seen = new Set();
   let any = false;
   for (const run of runs) {
-    if (![...run].some(isKanji)) continue;
+    // look up runs that contain a kanji OR katakana (skip pure hiragana particles)
+    if (![...run].some(isLookup)) continue;
     if (seen.has(run)) continue;
     seen.add(run);
     any = true;
     await renderWord(run, "", {});
   }
-  // if we still found nothing, list any loose kanji one by one
+  // if we still found nothing, list any loose kanji/katakana characters
   if (!any) {
     const s = new Set();
     for (const ch of text) {
-      if (!isKanji(ch) || s.has(ch)) continue;
+      if (!isLookup(ch) || s.has(ch)) continue;
       s.add(ch);
       await renderKanji(ch, results);
     }
@@ -500,13 +507,13 @@ async function runOCR(cleanCanvas) {
     ocrStatus.innerHTML = '<span class="spin"></span>Կարդում եմ նշանը…';
 
     const clean = await recognizeKanji(cleanCanvas);
-    const hasKanji = [...clean].some(isKanji);
-    ocrStatus.textContent = hasKanji
+    const found = [...clean].some(isLookup);
+    ocrStatus.textContent = found
       ? "Ահա թե ինչ կարդացի — ուղղիր անհրաժեշտության դեպքում՝"
       : "Չկարողացա հստակ կարդալ։ Մուտքագրիր ներքևում կամ փորձիր ավելի մեծ ու հստակ։";
     ocrText.value = clean;
     ocrReview.classList.remove("hidden");
-    if (hasKanji) analyze(clean); // show results right away; user can still fix + re-run
+    if (found) analyze(clean); // show results right away; user can still fix + re-run
   } catch (e) {
     ocrStatus.className = "status error";
     ocrStatus.textContent = "Չհաջողվեց կարդալ նկարը՝ " + e.message;
@@ -548,10 +555,10 @@ async function recognizeHandwriting(strokes, w, h) {
   const j = await r.json();
   if (j[0] !== "SUCCESS") throw new Error("չհաջողվեց կարդալ նկարածը");
   const cands = (j[1] && j[1][0] && j[1][0][1]) || [];
-  // put kanji guesses first, keep the rest as backups
+  // put Japanese guesses (kanji or katakana) first, keep the rest as backups
   return cands.sort((a, b) => {
-    const ak = [...a].some(isKanji) ? 0 : 1;
-    const bk = [...b].some(isKanji) ? 0 : 1;
+    const ak = [...a].some(isLookup) ? 0 : 1;
+    const bk = [...b].some(isLookup) ? 0 : 1;
     return ak - bk;
   });
 }
