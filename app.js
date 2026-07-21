@@ -1199,13 +1199,8 @@ function applyTile(t) {
   else { selectedKanji.delete(ch); t.classList.remove("sel"); }
   updateCreateBtn();
 }
-window.addEventListener("pointermove", (e) => {
-  if (!gridDrag) return;
-  const under = document.elementFromPoint(e.clientX, e.clientY);
-  const tile = under && under.closest && under.closest(".kg-tile");
-  if (tile) applyTile(tile);
-});
 window.addEventListener("pointerup", () => { gridDrag = false; });
+window.addEventListener("pointercancel", () => { gridDrag = false; });
 
 /* set of kanji allowed for a level = that level plus all EASIER ones
    (N5 is easiest). So N5 -> only N5; N4 -> N4+N5; N3 -> N3+N4+N5. */
@@ -1252,6 +1247,10 @@ async function loadLevel(lvl, btn) {
           else { selectedKanji.add(ch); t.classList.add("sel"); }
           updateCreateBtn();
         }
+      });
+      // sweeping the mouse into a tile while held keeps selecting
+      t.addEventListener("pointerenter", (e) => {
+        if (gridDrag && e.pointerType === "mouse") applyTile(t);
       });
       grid.appendChild(t);
     });
