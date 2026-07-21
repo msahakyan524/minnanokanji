@@ -512,14 +512,15 @@ const ocrStatus = $("#ocr-status");
 const ocrReview = $("#ocr-review");
 const ocrText = $("#ocr-text");
 
-/* Clean any picture (photo OR drawing) so Tesseract can read it: right size,
-   pure black & white, white border. Works on an <img> or a <canvas>. */
+/* Clean any picture for OCR: right size, grayscale with a gentle contrast
+   stretch, white margin. NOT hard black/white — the reader does better with a
+   normal grayscale photo. Works on an <img> or a <canvas>. */
 function cleanForOCR(drawable, srcW, srcH) {
-  const target = 1400;
-  const scale = target / Math.max(srcW, srcH);
+  const target = 1600;
+  const scale = Math.min(target / Math.max(srcW, srcH), 3); // upscale small, cap huge
   const w = Math.max(1, Math.round(srcW * scale));
   const h = Math.max(1, Math.round(srcH * scale));
-  const pad = Math.round(Math.max(w, h) * 0.15); // white margin
+  const pad = Math.round(Math.max(w, h) * 0.12); // white margin
 
   const canvas = document.createElement("canvas");
   canvas.width = w + pad * 2;
@@ -531,16 +532,18 @@ function cleanForOCR(drawable, srcW, srcH) {
 
   const imgData = ctx.getImageData(pad, pad, w, h);
   const px = imgData.data;
-  let sum = 0;
+  // grayscale + find range
+  let lo = 255, hi = 0;
   for (let i = 0; i < px.length; i += 4) {
     const g = (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) | 0;
     px[i] = px[i + 1] = px[i + 2] = g;
-    sum += g;
+    if (g < lo) lo = g;
+    if (g > hi) hi = g;
   }
-  const mean = sum / (px.length / 4);
-  const thr = mean * 0.82;
+  // gentle contrast stretch (map [lo,hi] -> [0,255]); keep grays, no binarize
+  const range = Math.max(1, hi - lo);
   for (let i = 0; i < px.length; i += 4) {
-    const v = px[i] < thr ? 0 : 255;
+    const v = Math.max(0, Math.min(255, Math.round(((px[i] - lo) / range) * 255)));
     px[i] = px[i + 1] = px[i + 2] = v;
   }
   ctx.putImageData(imgData, pad, pad);
@@ -588,9 +591,9 @@ async function recognizeKanji(canvas) {
 async function ocrSpace(dataUrl) {
   const body = new URLSearchParams();
   body.set("apikey", "helloworld"); // free demo key
-  body.set("language", "jpn");
-  body.set("OCREngine", "1");
+  body.set("OCREngine", "3");       // engine 3 reads Japanese far better than 1
   body.set("scale", "true");
+  body.set("detectOrientation", "true");
   body.set("base64Image", dataUrl);
   const r = await fetch("https://api.ocr.space/parse/image", {
     method: "POST",
@@ -615,9 +618,9 @@ async function runOCR(cleanCanvas) {
   results.innerHTML = "";
 
   let clean = "";
-  // 1) OCR.space first (best for Japanese)
+  // 1) OCR.space first (best for Japanese); JPEG keeps it under the size limit
   try {
-    clean = await ocrSpace(cleanCanvas.toDataURL("image/png"));
+    clean = await ocrSpace(cleanCanvas.toDataURL("image/jpeg", 0.85));
   } catch (e) {
     clean = "";
   }
