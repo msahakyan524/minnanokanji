@@ -24,7 +24,7 @@ function loadScript(url) {
     s.src = url;
     s.async = true;
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error("could not load " + url));
+    s.onerror = () => reject(new Error("չհաջողվեց բեռնել՝ " + url));
     document.head.appendChild(s);
   });
   scriptCache.set(url, p);
@@ -211,32 +211,41 @@ function makePassive(token) {
 /* ---------- rendering ---------- */
 const results = $("#results");
 
+/* mark a node as tap-to-copy */
+function copyable(node, text) {
+  node.classList.add("copyable");
+  node.dataset.copy = text;
+  node.title = "Սեղմիր՝ պատճենելու համար";
+  return node;
+}
+
 async function renderKanji(ch, container) {
   const card = el("div", "kanji-card");
-  card.appendChild(el("div", "notice", '<span class="spin"></span>Looking up ' + esc(ch) + "…"));
+  card.appendChild(el("div", "notice", '<span class="spin"></span>Փնտրում եմ ' + esc(ch) + "…"));
   container.appendChild(card);
 
   const [info, examples] = await Promise.all([getKanji(ch), getExamples(ch)]);
   card.innerHTML = "";
 
   if (!info) {
-    card.appendChild(el("div", "notice", "Couldn’t load dictionary data for " + esc(ch) + "."));
+    card.appendChild(el("div", "notice", "Չհաջողվեց բեռնել " + esc(ch) + "-ի տվյալները։"));
     return;
   }
 
   const top = el("div", "kanji-top");
-  top.appendChild(el("div", "kanji-glyph", esc(ch)));
+  top.appendChild(copyable(el("div", "kanji-glyph", esc(ch)), ch));
 
   const facts = el("div", "kanji-facts");
-  facts.appendChild(el("p", "kanji-meaning", esc(info.meanings.join(", ") || "—")));
+  const meaningText = info.meanings.join(", ") || "—";
+  facts.appendChild(copyable(el("p", "kanji-meaning", esc(meaningText)), meaningText));
 
   const readings = el("ul", "readings");
   const onVals = info.on.length ? info.on.map((x) => "<span>" + esc(x) + "</span>").join("") : "—";
   const kunVals = info.kun.length ? info.kun.map((x) => "<span>" + esc(x) + "</span>").join("") : "—";
   readings.appendChild(el("li", null,
-    '<span class="reading-tag">On’yomi</span><span class="reading-vals" lang="ja">' + onVals + "</span>"));
+    '<span class="reading-tag">Օնյոմի</span><span class="reading-vals" lang="ja">' + onVals + "</span>"));
   readings.appendChild(el("li", null,
-    '<span class="reading-tag">Kun’yomi</span><span class="reading-vals" lang="ja">' + kunVals + "</span>"));
+    '<span class="reading-tag">Կունյոմի</span><span class="reading-vals" lang="ja">' + kunVals + "</span>"));
   facts.appendChild(readings);
   top.appendChild(facts);
 
@@ -244,29 +253,29 @@ async function renderKanji(ch, container) {
   const stroke = el("div", "stroke-wrap");
   const img = el("img", "stroke-img");
   img.loading = "lazy";
-  img.alt = "Stroke order for " + ch;
+  img.alt = "Գրելու հերթականությունը՝ " + ch;
   img.src = strokeURL(ch);
-  img.onerror = () => { stroke.innerHTML = '<p class="notice">No stroke diagram available.</p>'; };
+  img.onerror = () => { stroke.innerHTML = '<p class="notice">Գրելու սխեման հասանելի չէ։</p>'; };
   stroke.appendChild(img);
-  if (info.strokes) stroke.appendChild(el("p", "stroke-count", info.strokes + " strokes"));
+  if (info.strokes) stroke.appendChild(el("p", "stroke-count", info.strokes + " գիծ"));
   top.appendChild(stroke);
 
   card.appendChild(top);
 
   // examples
-  card.appendChild(el("p", "section-title", "Example words"));
+  card.appendChild(el("p", "section-title", "Օրինակ բառեր"));
   if (examples.length) {
     const ul = el("ul", "examples");
     for (const ex of examples) {
       const li = el("li");
-      li.appendChild(el("span", "ex-word", '<span lang="ja">' + esc(ex.written) + "</span>"));
+      li.appendChild(copyable(el("span", "ex-word", '<span lang="ja">' + esc(ex.written) + "</span>"), ex.written));
       if (ex.reading) li.appendChild(el("span", "ex-reading", '<span lang="ja">' + esc(ex.reading) + "</span>"));
       if (ex.meaning) li.appendChild(el("p", "ex-meaning", esc(ex.meaning)));
       ul.appendChild(li);
     }
     card.appendChild(ul);
   } else {
-    card.appendChild(el("p", "notice", "No example words found."));
+    card.appendChild(el("p", "notice", "Օրինակ բառեր չգտնվեցին։"));
   }
 }
 
@@ -274,27 +283,29 @@ async function renderKanji(ch, container) {
 async function renderWord(surface, reading, opts = {}) {
   const block = el("div", "word-block");
   if (opts.passiveOf) {
-    block.appendChild(el("span", "passive-tag", "Passive form"));
+    block.appendChild(el("span", "passive-tag", "Կրավորական ձև"));
   }
   const head = el("div", "word-head");
-  head.appendChild(el("span", "word-surface", '<span lang="ja">' + esc(surface) + "</span>"));
+  head.appendChild(copyable(el("span", "word-surface", '<span lang="ja">' + esc(surface) + "</span>"), surface));
   block.appendChild(head);
-  const mp = el("p", "word-meaning", '<span class="spin"></span>Looking up meaning…');
+  const mp = el("p", "word-meaning", '<span class="spin"></span>Փնտրում եմ իմաստը…');
   block.appendChild(mp);
   if (opts.passiveOf) {
     block.appendChild(el("p", "passive-note",
-      "Passive of " + esc(opts.passiveOf) + " — “to be …-ed”. The kanji below are the same as in the plain verb."));
+      esc(opts.passiveOf) + "-ի կրավորական ձևը։ Ներքևի կանջիները նույնն են։"));
   }
   results.appendChild(block);
 
   const wm = await getWordMeaning(surface, reading);
   if (wm) {
     head.appendChild(el("span", "word-reading", '<span lang="ja">' + esc(wm.reading) + "</span>"));
-    mp.className = "word-meaning";
-    mp.textContent = wm.meaning || "(no English meaning found)";
+    mp.className = "word-meaning copyable";
+    mp.dataset.copy = wm.meaning || surface;
+    mp.title = "Սեղմիր՝ պատճենելու համար";
+    mp.textContent = wm.meaning || "(իմաստ չգտնվեց)";
   } else {
     mp.className = "word-meaning notice";
-    mp.textContent = "No dictionary meaning found for this word.";
+    mp.textContent = "Այս բառի իմաստը չգտնվեց։";
   }
 
   const kanjiList = [...surface].filter(isKanji);
@@ -314,7 +325,7 @@ async function analyze(text) {
   if (running) return;
   running = true;
   results.innerHTML = "";
-  const loading = el("div", "panel notice", '<span class="spin"></span>Looking up…');
+  const loading = el("div", "panel notice", '<span class="spin"></span>Փնտրում եմ…');
   results.appendChild(loading);
 
   try {
@@ -359,11 +370,13 @@ async function analyze(text) {
     }
 
     if (!results.children.length) {
-      results.appendChild(el("div", "panel error-box", "No kanji found in that text. Try a clearer photo or type the characters directly."));
+      results.appendChild(el("div", "panel error-box", "Այս տեքստում կանջի չգտնվեց։ Փորձիր ավելի հստակ նկար կամ ուղղակի մուտքագրիր նշանները։"));
+    } else {
+      saveState(text); // remember results + history until the tab is closed
     }
   } catch (e) {
     results.innerHTML = "";
-    results.appendChild(el("div", "panel error-box", "Something went wrong: " + esc(e.message)));
+    results.appendChild(el("div", "panel error-box", "Ինչ-որ բան այնպես չգնաց՝ " + esc(e.message)));
   } finally {
     running = false;
   }
@@ -440,7 +453,7 @@ function preprocess(file) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(cleanForOCR(img, img.width, img.height));
-    img.onerror = () => reject(new Error("could not open that image"));
+    img.onerror = () => reject(new Error("չհաջողվեց բացել նկարը"));
     img.src = URL.createObjectURL(file);
   });
 }
@@ -452,7 +465,7 @@ async function recognizeKanji(canvas) {
   const worker = await Tesseract.createWorker("jpn", 1, {
     logger: (m) => {
       if (m.status === "recognizing text") {
-        ocrStatus.innerHTML = '<span class="spin"></span>Reading… ' + Math.round(m.progress * 100) + "%";
+        ocrStatus.innerHTML = '<span class="spin"></span>Կարդում եմ… ' + Math.round(m.progress * 100) + "%";
       }
     },
   });
@@ -478,25 +491,25 @@ async function runOCR(cleanCanvas) {
   previewImg.src = cleanCanvas.toDataURL(); // show exactly what we read
   ocrReview.classList.add("hidden");
   ocrStatus.className = "status";
-  ocrStatus.innerHTML = '<span class="spin"></span>Getting the text-reader ready…';
+  ocrStatus.innerHTML = '<span class="spin"></span>Պատրաստում եմ ընթերցիչը…';
   results.innerHTML = "";
 
   try {
     await loadScript(TESSERACT_URL);
-    if (typeof Tesseract === "undefined") throw new Error("text-reader could not load (check your internet)");
-    ocrStatus.innerHTML = '<span class="spin"></span>Reading the character…';
+    if (typeof Tesseract === "undefined") throw new Error("ընթերցիչը չբեռնվեց (ստուգիր ինտերնետը)");
+    ocrStatus.innerHTML = '<span class="spin"></span>Կարդում եմ նշանը…';
 
     const clean = await recognizeKanji(cleanCanvas);
     const hasKanji = [...clean].some(isKanji);
     ocrStatus.textContent = hasKanji
-      ? "Here’s what I read — fix it if needed:"
-      : "I couldn’t clearly read a kanji. Type it in the box below, or try again bigger and clearer.";
+      ? "Ահա թե ինչ կարդացի — ուղղիր անհրաժեշտության դեպքում՝"
+      : "Չկարողացա հստակ կարդալ։ Մուտքագրիր ներքևում կամ փորձիր ավելի մեծ ու հստակ։";
     ocrText.value = clean;
     ocrReview.classList.remove("hidden");
     if (hasKanji) analyze(clean); // show results right away; user can still fix + re-run
   } catch (e) {
     ocrStatus.className = "status error";
-    ocrStatus.textContent = "Couldn’t read the image: " + e.message;
+    ocrStatus.textContent = "Չհաջողվեց կարդալ նկարը՝ " + e.message;
     ocrReview.classList.remove("hidden");
   }
 }
@@ -505,13 +518,13 @@ async function handleImage(file) {
   if (!file || !file.type.startsWith("image/")) return;
   previewPanel.classList.remove("hidden");
   ocrStatus.className = "status";
-  ocrStatus.innerHTML = '<span class="spin"></span>Cleaning up your image…';
+  ocrStatus.innerHTML = '<span class="spin"></span>Մաքրում եմ նկարը…';
   try {
     const canvas = await preprocess(file);
     await runOCR(canvas);
   } catch (e) {
     ocrStatus.className = "status error";
-    ocrStatus.textContent = "Couldn’t open the image: " + e.message;
+    ocrStatus.textContent = "Չհաջողվեց բացել նկարը՝ " + e.message;
   }
 }
 
@@ -531,9 +544,9 @@ async function recognizeHandwriting(strokes, w, h) {
     "https://inputtools.google.com/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8",
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
   );
-  if (!r.ok) throw new Error("recogniser unreachable (" + r.status + ")");
+  if (!r.ok) throw new Error("ճանաչիչն անհասանելի է (" + r.status + ")");
   const j = await r.json();
-  if (j[0] !== "SUCCESS") throw new Error("could not read the drawing");
+  if (j[0] !== "SUCCESS") throw new Error("չհաջողվեց կարդալ նկարածը");
   const cands = (j[1] && j[1][0] && j[1][0][1]) || [];
   // put kanji guesses first, keep the rest as backups
   return cands.sort((a, b) => {
@@ -547,7 +560,7 @@ async function recognizeHandwriting(strokes, w, h) {
 function renderCandidates(cands, chosen) {
   const box = $("#candidates");
   box.innerHTML = "";
-  box.appendChild(el("span", "cand-label", "Not right? Tap the character you drew:"));
+  box.appendChild(el("span", "cand-label", "Սխա՞լ է։ Սեղմիր քո նկարած նշանը՝"));
   const row = el("div", "cand-row");
   cands.slice(0, 10).forEach((c) => {
     const b = el("button", "cand-btn" + (c === chosen ? " active" : ""), esc(c));
@@ -645,26 +658,26 @@ function setupDrawPad() {
     ocrStatus.className = "status";
     previewImg.src = canvas.toDataURL();
     if (!strokes.length) {
-      ocrStatus.textContent = "Draw a kanji first, then tap “Read this kanji”.";
+      ocrStatus.textContent = "Նախ նկարիր կանջի, ապա սեղմիր «Կարդալ կանջին»։";
       return;
     }
-    ocrStatus.innerHTML = '<span class="spin"></span>Recognising your drawing…';
+    ocrStatus.innerHTML = '<span class="spin"></span>Ճանաչում եմ նկարածդ…';
     results.innerHTML = "";
     try {
       const cands = await recognizeHandwriting(strokes, canvas.width, canvas.height);
       if (!cands.length) {
-        ocrStatus.textContent = "Couldn’t recognise that. Try drawing it a bit bigger and clearer.";
+        ocrStatus.textContent = "Չհաջողվեց ճանաչել։ Փորձիր ավելի մեծ ու հստակ նկարել։";
         return;
       }
       const primary = cands[0];
-      ocrStatus.textContent = "I think you drew:";
+      ocrStatus.textContent = "Կարծում եմ՝ նկարեցիր՝";
       ocrText.value = primary;
       ocrReview.classList.remove("hidden");
       renderCandidates(cands, primary);
       analyze(primary);
     } catch (e) {
       ocrStatus.className = "status error";
-      ocrStatus.textContent = "Couldn’t recognise the drawing: " + e.message;
+      ocrStatus.textContent = "Չհաջողվեց ճանաչել նկարածը՝ " + e.message;
     }
   });
 }
@@ -692,10 +705,104 @@ drop.addEventListener("drop", (e) => {
 window.addEventListener("error", (e) => {
   if (!results.children.length) {
     results.appendChild(el("div", "panel error-box",
-      "A script error occurred: " + esc(e.message || "unknown") +
-      ". The page may not have loaded fully — please refresh."));
+      "Սխալ առաջացավ՝ " + esc(e.message || "անհայտ") +
+      "։ Էջը գուցե ամբողջությամբ չբեռնվեց — թարմացրու։"));
   }
 });
+
+/* ---------- tabs ---------- */
+function setupTabs() {
+  const tabs = [...document.querySelectorAll(".tab")];
+  const panels = {
+    draw: $("#tab-draw"), upload: $("#tab-upload"),
+    photo: $("#tab-photo"), type: $("#tab-type"),
+  };
+  function show(name) {
+    tabs.forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+    Object.entries(panels).forEach(([k, p]) => p && p.classList.toggle("hidden", k !== name));
+    try { sessionStorage.setItem("mk_tab", name); } catch (e) {}
+  }
+  tabs.forEach((t) => t.addEventListener("click", () => show(t.dataset.tab)));
+  let saved = null;
+  try { saved = sessionStorage.getItem("mk_tab"); } catch (e) {}
+  show(saved && panels[saved] ? saved : "draw");
+}
+setupTabs();
+
+/* ---------- tap-to-copy (works on restored history too, via delegation) ---------- */
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.remove("hidden");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.add("hidden"), 1600);
+}
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch (_) {}
+    document.body.removeChild(ta);
+  }
+  toast("Պատճենվեց՝ " + text);
+}
+document.addEventListener("click", (e) => {
+  const c = e.target.closest(".copyable");
+  if (c && c.dataset.copy) copyText(c.dataset.copy);
+});
+
+/* ---------- search history + restore (kept until the tab is closed) ---------- */
+const HISTORY_KEY = "mk_history";
+const LAST_HTML_KEY = "mk_last_html";
+function getHistory() {
+  try { return JSON.parse(sessionStorage.getItem(HISTORY_KEY) || "[]"); } catch (e) { return []; }
+}
+function renderHistory() {
+  const wrap = $("#history-wrap");
+  const box = $("#history");
+  const items = getHistory();
+  box.innerHTML = "";
+  if (!items.length) { wrap.classList.add("hidden"); return; }
+  wrap.classList.remove("hidden");
+  items.forEach((q) => {
+    const chip = el("button", "history-chip", '<span lang="ja">' + esc(q) + "</span>");
+    chip.type = "button";
+    chip.addEventListener("click", () => analyze(q));
+    box.appendChild(chip);
+  });
+}
+function saveState(query) {
+  try {
+    let items = getHistory().filter((q) => q !== query);
+    items.unshift(query);
+    items = items.slice(0, 24);
+    sessionStorage.setItem(HISTORY_KEY, JSON.stringify(items));
+    sessionStorage.setItem(LAST_HTML_KEY, results.innerHTML);
+  } catch (e) {}
+  renderHistory();
+}
+function restoreState() {
+  renderHistory();
+  try {
+    const html = sessionStorage.getItem(LAST_HTML_KEY);
+    if (html) results.innerHTML = html; // instant — nothing "happens" on refresh
+  } catch (e) {}
+}
+$("#history-clear").addEventListener("click", () => {
+  try {
+    sessionStorage.removeItem(HISTORY_KEY);
+    sessionStorage.removeItem(LAST_HTML_KEY);
+  } catch (e) {}
+  results.innerHTML = "";
+  renderHistory();
+});
+restoreState();
 
 /* NOTE: the heavy 15MB grammar dictionary is intentionally NOT loaded — it made
    phones freeze mid-drawing and the page crawl. Kanji lookup works without it.

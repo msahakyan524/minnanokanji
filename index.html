@@ -1,86 +1,108 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hy">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kanji Reader</title>
+<title>Միննա の 漢字</title>
 <link rel="preconnect" href="https://kanjiapi.dev">
 <link rel="preconnect" href="https://jotoba.de">
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
   <header class="site-head">
-    <h1 lang="ja">漢字 <span>Kanji Reader</span></h1>
-    <p class="tagline">Photograph or upload Japanese text. Get the meaning, readings, examples and stroke order for every kanji.</p>
+    <h1 lang="ja">Միննա の 漢字</h1>
+    <p class="tagline">Նկարիր, վերբեռնիր, լուսանկարիր կամ մուտքագրիր ճապոներեն։ Ստացիր յուրաքանչյուր կանջիի իմաստը, ընթերցումներն ու գրելու հերթականությունը։</p>
   </header>
 
   <main>
-    <!-- Input -->
     <section class="panel" id="input-panel">
-      <div class="uploader" id="drop">
-        <label class="file-field">
-          <span class="file-emoji">📷</span>
-          <span class="file-text">Take a photo<small>opens your camera on a phone</small></span>
-          <input type="file" accept="image/*" capture="environment" id="camera-input">
-        </label>
-        <label class="file-field">
+      <!-- Tabs (upper left) -->
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab active" data-tab="draw">✍️ Նկարել</button>
+        <button type="button" class="tab" data-tab="upload">🖼️ Վերբեռնել</button>
+        <button type="button" class="tab" data-tab="photo">📷 Լուսանկարել</button>
+        <button type="button" class="tab" data-tab="type">⌨️ Մուտքագրել</button>
+      </div>
+
+      <!-- Draw with finger -->
+      <div class="tab-panel" id="tab-draw">
+        <p class="draw-hint">Նկարիր մեկ կանջի ինչպես ուզում ես — գծերի հերթականությունը կարևոր չէ։</p>
+        <div class="draw-wrap">
+          <canvas id="draw-canvas" width="320" height="320" aria-label="Նկարելու տարածք"
+                  style="width:280px;height:280px;max-width:100%;background:#fff;border:2px solid #c9c6d6;border-radius:16px;touch-action:none;cursor:crosshair"></canvas>
+        </div>
+        <p id="draw-status" class="draw-status">Գծերի քանակը՝ 0</p>
+        <div class="btn-row draw-btns">
+          <button type="button" class="btn" id="draw-clear">Մաքրել</button>
+          <button type="button" class="btn btn-primary" id="draw-read">Կարդալ կանջին</button>
+        </div>
+      </div>
+
+      <!-- Upload picture -->
+      <div class="tab-panel hidden" id="tab-upload">
+        <label class="file-field" id="drop">
           <span class="file-emoji">🖼️</span>
-          <span class="file-text">Choose an image<small>pick a picture from this device</small></span>
+          <span class="file-text">Ընտրիր նկար<small>ընտրիր նկար այս սարքից</small></span>
           <input type="file" accept="image/*" id="file-input">
         </label>
       </div>
 
-      <div class="type-row">
-        <span class="type-label">…or just type / paste Japanese:</span>
-        <div class="type-fields">
-          <input type="text" id="text-input" lang="ja" placeholder="例：日本語を勉強する" autocomplete="off">
-          <button class="btn btn-primary" id="analyze-btn">Analyze</button>
-        </div>
+      <!-- Take photo -->
+      <div class="tab-panel hidden" id="tab-photo">
+        <label class="file-field">
+          <span class="file-emoji">📷</span>
+          <span class="file-text">Լուսանկարիր<small>հեռախոսում բացում է տեսախցիկը</small></span>
+          <input type="file" accept="image/*" capture="environment" id="camera-input">
+        </label>
       </div>
 
-      <div class="type-row">
-        <span class="type-label">…or draw one kanji with your finger:</span>
-        <p class="draw-hint">Draw it however you like — the order of your strokes doesn’t matter.</p>
-        <div class="draw-wrap">
-          <canvas id="draw-canvas" width="320" height="320" aria-label="Drawing area"
-                  style="width:280px;height:280px;max-width:100%;background:#fff;border:2px solid #c9c6d6;border-radius:16px;touch-action:none;cursor:crosshair"></canvas>
-        </div>
-        <p id="draw-status" class="draw-status">Strokes drawn: 0</p>
-        <div class="btn-row draw-btns">
-          <button type="button" class="btn" id="draw-clear">Clear</button>
-          <button type="button" class="btn btn-primary" id="draw-read">Read this kanji</button>
+      <!-- Type -->
+      <div class="tab-panel hidden" id="tab-type">
+        <span class="type-label">Մուտքագրիր կամ փակցրու ճապոներեն տեքստ՝</span>
+        <div class="type-fields">
+          <input type="text" id="text-input" lang="ja" placeholder="օր․՝ 日本語を勉強する" autocomplete="off">
+          <button class="btn btn-primary" id="analyze-btn">Վերլուծել</button>
         </div>
       </div>
     </section>
 
-    <!-- Preview + OCR status -->
+    <!-- Preview + recognised text (editable) -->
     <section class="panel hidden" id="preview-panel">
-      <img id="preview-img" alt="Your image">
+      <img id="preview-img" alt="Քո նկարը">
       <div id="ocr-status" class="status"></div>
       <div id="candidates" class="candidates hidden"></div>
       <div id="ocr-review" class="hidden">
-        <label class="review-label" for="ocr-text">Recognised text — fix any mistakes, then analyze:</label>
+        <label class="review-label" for="ocr-text">Ճանաչված նշանը — ուղղիր ու վերլուծիր՝</label>
         <div class="type-fields">
           <input type="text" id="ocr-text" lang="ja" autocomplete="off">
-          <button class="btn btn-primary" id="ocr-analyze-btn">Analyze</button>
+          <button class="btn btn-primary" id="ocr-analyze-btn">Վերլուծել</button>
         </div>
       </div>
+    </section>
+
+    <!-- History -->
+    <section id="history-wrap" class="hidden">
+      <div class="history-head">
+        <h2>Որոնման պատմություն</h2>
+        <button type="button" class="link-btn" id="history-clear">Մաքրել</button>
+      </div>
+      <div id="history" class="history"></div>
     </section>
 
     <!-- Results -->
     <section id="results" aria-live="polite"></section>
   </main>
 
+  <div id="toast" class="toast hidden" role="status"></div>
+
   <footer class="site-foot">
-    <p>Dictionary data from <a href="https://kanjiapi.dev" target="_blank" rel="noopener">kanjiapi.dev</a> &amp;
-       <a href="https://jotoba.de" target="_blank" rel="noopener">Jotoba</a>.
-       Stroke diagrams from <a href="https://kanjivg.tagaini.net" target="_blank" rel="noopener">KanjiVG</a>.
-       Text reading by Tesseract. Runs entirely in your browser.</p>
-    <p class="build-tag">Version 8</p>
+    <p>Բառարանը՝ <a href="https://kanjiapi.dev" target="_blank" rel="noopener">kanjiapi.dev</a> և
+       <a href="https://jotoba.de" target="_blank" rel="noopener">Jotoba</a>։
+       Գրելու սխեմաները՝ <a href="https://kanjivg.tagaini.net" target="_blank" rel="noopener">KanjiVG</a>։
+       Ձեռագիրը ճանաչում է Google-ը։ Ամբողջությամբ աշխատում է քո զննարկիչում։</p>
+    <p class="build-tag">Տարբերակ 9</p>
   </footer>
 
-  <!-- Only our own tiny script loads up front, so the page ALWAYS appears.
-       The big helper libraries are fetched later, only when needed. -->
-  <script src="app.js?v=8" defer></script>
+  <script src="app.js?v=9" defer></script>
 </body>
 </html>
