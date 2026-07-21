@@ -1249,7 +1249,7 @@ function finishStudy() {
   const done = $("#study-done");
   done.classList.remove("hidden");
   done.innerHTML = "";
-  done.appendChild(el("p", "fc-reading", "Ավարտ 🎉"));
+  done.appendChild(el("p", "fc-reading", "Ավարտ"));
   done.appendChild(el("p", null, "Գիտեմ՝ " + known + " · Չգիտեմ՝ " + unknown.length));
   if (unknown.length) {
     const again = el("button", "btn btn-primary", "Կրկնել չիմացածները (" + unknown.length + ")");
