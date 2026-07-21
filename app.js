@@ -1085,7 +1085,7 @@ const isStarred = (item) => loadStars().some((s) => sameItem(s, item));
 function toggleStar(item, btn) {
   const stars = loadStars();
   const i = stars.findIndex((s) => sameItem(s, item));
-  if (i >= 0) { stars.splice(i, 1); if (btn) btn.classList.remove("starred"); toast("Հանվեց աստղանիշից"); }
+  if (i >= 0) { stars.splice(i, 1); if (btn) btn.classList.remove("starred"); toast("Հեռացվեց հատուկ բառերից"); }
   else {
     stars.unshift({ type: item.type, ja: item.ja, reading: item.reading, meaning: item.meaning });
     if (btn) btn.classList.add("starred"); toast("Ավելացվեց աստղանիշին");
