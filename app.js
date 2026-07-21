@@ -167,12 +167,12 @@ function getTokenizer() {
   }
   return tokenizerPromise;
 }
-/* wait for the tokenizer, but give up after a while so nothing hangs forever */
-function getTokenizerOrNull(ms) {
-  return Promise.race([
-    getTokenizer().catch(() => null),
-    new Promise((res) => setTimeout(() => res(null), ms)),
-  ]);
+/* The grammar helper is OPTIONAL. We load it quietly in the background and, if
+   it ever finishes, store it here. analyze() only uses it if it's ready, so
+   nothing ever waits for the big dictionary. */
+let readyTokenizer = null;
+function warmUpTokenizer() {
+  getTokenizer().then((t) => { readyTokenizer = t; }).catch(() => {});
 }
 
 /* ---------- passive form from a kuromoji verb token ---------- */
@@ -314,14 +314,15 @@ async function analyze(text) {
   if (running) return;
   running = true;
   results.innerHTML = "";
-  const loading = el("div", "panel notice", '<span class="spin"></span>Reading the Japanese…');
+  const loading = el("div", "panel notice", '<span class="spin"></span>Looking up…');
   results.appendChild(loading);
 
   try {
+    // Use the grammar helper ONLY if it is already loaded — never wait for it,
+    // so a single kanji (or a phone) is never stuck behind the big dictionary.
     let tokens = null;
-    const tok = await getTokenizerOrNull(8000);
-    if (tok) {
-      try { tokens = tok.tokenize(text); } catch (e) { tokens = null; }
+    if (readyTokenizer) {
+      try { tokens = readyTokenizer.tokenize(text); } catch (e) { tokens = null; }
     }
     loading.remove();
 
@@ -351,10 +352,10 @@ async function analyze(text) {
           await renderWord(surface, t.reading || "", {});
         }
       }
-      // nothing had kanji? fall back to scanning loose kanji
-      if (!results.children.length) await scanLooseKanji(text);
+      // nothing had kanji? fall back to word grouping
+      if (!results.children.length) await analyzeWithoutGrammar(text);
     } else {
-      await scanLooseKanji(text);
+      await analyzeWithoutGrammar(text);
     }
 
     if (!results.children.length) {
@@ -368,13 +369,27 @@ async function analyze(text) {
   }
 }
 
-/* fallback: just list every kanji character */
-async function scanLooseKanji(text) {
+/* fallback when the grammar helper isn't loaded: split into runs of Japanese
+   text and look each up as a word (meaning + its kanji). No big dictionary. */
+async function analyzeWithoutGrammar(text) {
+  const runs = text.match(/[぀-ヿ㐀-鿿ｦ-ﾟ]+/g) || [];
   const seen = new Set();
-  for (const ch of text) {
-    if (!isKanji(ch) || seen.has(ch)) continue;
-    seen.add(ch);
-    await renderKanji(ch, results);
+  let any = false;
+  for (const run of runs) {
+    if (![...run].some(isKanji)) continue;
+    if (seen.has(run)) continue;
+    seen.add(run);
+    any = true;
+    await renderWord(run, "", {});
+  }
+  // if we still found nothing, list any loose kanji one by one
+  if (!any) {
+    const s = new Set();
+    for (const ch of text) {
+      if (!isKanji(ch) || s.has(ch)) continue;
+      s.add(ch);
+      await renderKanji(ch, results);
+    }
   }
 }
 
@@ -671,3 +686,7 @@ window.addEventListener("error", (e) => {
       ". The page may not have loaded fully — please refresh."));
   }
 });
+
+/* Quietly load the optional grammar helper a few seconds after the page is
+   ready, so passive-verb detection works later WITHOUT ever blocking a tap. */
+setTimeout(warmUpTokenizer, 4000);
