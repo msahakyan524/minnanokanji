@@ -49,6 +49,18 @@ const KUROMOJI_URL = "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji
 const kanjiCache = new Map();
 const wordCache = new Map();
 
+/* strip dictionary index numbers like "(no. 73)" / "(radical 72)" from meanings */
+function cleanMeanings(arr) {
+  return (arr || [])
+    .map((m) =>
+      String(m)
+        .replace(/\s*\(\s*(?:no\.?|radical)?\s*\d+\s*\)/gi, "") // "(no. 73)", "(73)"
+        .replace(/\s{2,}/g, " ")
+        .trim()
+    )
+    .filter(Boolean);
+}
+
 /* ---------- kanji info: try kanjiapi, fall back to Jotoba ---------- */
 async function getKanji(ch) {
   if (kanjiCache.has(ch)) return kanjiCache.get(ch);
@@ -59,7 +71,7 @@ async function getKanji(ch) {
       const j = await r.json();
       data = {
         char: ch,
-        meanings: j.meanings || [],
+        meanings: cleanMeanings(j.meanings),
         on: j.on_readings || [],
         kun: j.kun_readings || [],
         strokes: j.stroke_count || null,
@@ -75,7 +87,7 @@ async function getKanji(ch) {
       if (k) {
         data = {
           char: ch,
-          meanings: k.meanings || [],
+          meanings: cleanMeanings(k.meanings),
           on: k.onyomi || [],
           kun: k.kunyomi || [],
           strokes: k.stroke_count || null,
