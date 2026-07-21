@@ -419,17 +419,23 @@ main { max-width: 720px; margin: 0 auto; padding: 0 16px 32px; }
 
 /* Examples */
 .examples { margin: 0; padding: 0; list-style: none; }
-.examples li {
-  padding: 8px 0;
+.example-item {
+  padding: 12px 0;
   border-top: 1px solid var(--line);
-  display: flex;
-  gap: 12px;
-  align-items: baseline;
-  flex-wrap: wrap;
 }
-.ex-word { font-size: 20px; font-weight: 600; }
-.ex-reading { color: var(--accent-ink); }
-.ex-meaning { color: var(--ink-soft); flex: 1 1 100%; margin: 0; }
+.ex-head { display: flex; align-items: center; gap: 10px; }
+.ex-word { font-size: 24px; font-weight: 600; }
+/* furigana (reading above the word) */
+.ex-word ruby { ruby-position: over; -webkit-ruby-position: over; }
+.ex-word rt {
+  font-size: 0.5em;
+  color: var(--accent-ink);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.ex-meaning-block { margin-top: 6px; }
+.ex-meaning-block .m-line { font-size: 15px; }
+.ex-meaning-block .m-line.m-en { font-size: 16px; }
 
 /* Stroke order */
 .stroke-wrap { text-align: center; }

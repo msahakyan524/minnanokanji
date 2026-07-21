@@ -103,7 +103,7 @@ async function jotoba(query) {
   return j;
 }
 
-/* example words that contain a kanji, from Jotoba */
+/* example COMPOUND words: contain this kanji next to at least one other kanji */
 async function getExamples(ch, exclude) {
   try {
     const j = await jotoba(ch);
@@ -111,6 +111,8 @@ async function getExamples(ch, exclude) {
     for (const w of j.words || []) {
       const written = (w.reading && w.reading.kanji) || (w.reading && w.reading.kana);
       if (!written || !written.includes(ch)) continue;
+      // require 2+ kanji so the kanji always sits beside another kanji
+      if ([...written].filter(isKanji).length < 2) continue;
       if (exclude && written === exclude) continue;
       const sense = (w.senses || [])[0];
       const gloss = sense ? (sense.glosses || []).slice(0, 3).join(", ") : "";
@@ -120,11 +122,11 @@ async function getExamples(ch, exclude) {
         meaning: gloss,
         common: !!w.common,
       });
-      if (out.length >= 6) break;
+      if (out.length >= 8) break;
     }
     // prefer common words, keep at least two
     out.sort((a, b) => (b.common ? 1 : 0) - (a.common ? 1 : 0));
-    return out.slice(0, 3);
+    return out.slice(0, 4);
   } catch (e) {
     return [];
   }
@@ -344,15 +346,21 @@ async function renderKanji(ch, container) {
   if (examples.length) {
     const ul = el("ul", "examples");
     for (const ex of examples) {
-      const li = el("li");
-      li.appendChild(copyable(el("span", "ex-word", '<span lang="ja">' + esc(ex.written) + "</span>"), ex.written));
-      if (ex.reading) li.appendChild(el("span", "ex-reading", '<span lang="ja">' + esc(ex.reading) + "</span>"));
-      if (ex.meaning) li.appendChild(el("p", "ex-meaning", esc(ex.meaning)));
+      const li = el("li", "example-item");
+      const headRow = el("div", "ex-head");
+      // furigana: reading written above the word using <ruby>
+      const ruby = ex.reading
+        ? '<ruby>' + esc(ex.written) + "<rt>" + esc(ex.reading) + "</rt></ruby>"
+        : esc(ex.written);
+      headRow.appendChild(copyable(el("span", "ex-word", '<span lang="ja">' + ruby + "</span>"), ex.written));
+      headRow.appendChild(speakerBtn(ex.written));
+      li.appendChild(headRow);
+      if (ex.meaning) li.appendChild(meaningBlock(ex.meaning, "ex-meaning-block"));
       ul.appendChild(li);
     }
     card.appendChild(ul);
   } else {
-    card.appendChild(el("p", "notice", "Օրինակ բառեր չգտնվեցին։"));
+    card.appendChild(el("p", "notice", "Երկու կանջիով օրինակ բառ չգտնվեց։"));
   }
 }
 
