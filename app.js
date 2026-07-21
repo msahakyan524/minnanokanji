@@ -1057,6 +1057,18 @@ const SAKURA_STAR =
   '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">' +
   '<path fill="currentColor" d="M12 2.6c1.1 0 2 1.5 2.05 3.2 1.5-.9 3.2-.7 3.75.4.55 1.1-.3 2.6-1.8 3.4 1.6.5 2.6 1.8 2.15 3-.45 1.15-2.15 1.55-3.75 1.05.5 1.6.05 3.2-1.1 3.6-1.15.4-2.55-.65-3.2-2.15-.65 1.5-2.05 2.55-3.2 2.15-1.15-.4-1.6-2-1.1-3.6-1.6.5-3.3.1-3.75-1.05-.45-1.2.55-2.5 2.15-3-1.5-.8-2.35-2.3-1.8-3.4.55-1.1 2.25-1.3 3.75-.4C10 4.1 10.9 2.6 12 2.6z"/>' +
   '<circle cx="12" cy="12" r="2.2" fill="#fff" opacity=".6"/></svg>';
+/* sakura flower with 字 (matches the logo) — used for the starred set title */
+const SAKURA_JI =
+  '<svg class="set-flower" viewBox="0 0 66 64" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">' +
+  '<g fill="#ffb0d2" stroke="#ff8fbb" stroke-width="1.5" stroke-linejoin="round">' +
+  '<path d="M33 34 C 19 32, 17 15, 25.5 9 C 28.5 6.5, 31 11, 33 13 C 35 11, 37.5 6.5, 40.5 9 C 49 15, 47 32, 33 34 Z" transform="rotate(0 33 32)"/>' +
+  '<path d="M33 34 C 19 32, 17 15, 25.5 9 C 28.5 6.5, 31 11, 33 13 C 35 11, 37.5 6.5, 40.5 9 C 49 15, 47 32, 33 34 Z" transform="rotate(72 33 32)"/>' +
+  '<path d="M33 34 C 19 32, 17 15, 25.5 9 C 28.5 6.5, 31 11, 33 13 C 35 11, 37.5 6.5, 40.5 9 C 49 15, 47 32, 33 34 Z" transform="rotate(144 33 32)"/>' +
+  '<path d="M33 34 C 19 32, 17 15, 25.5 9 C 28.5 6.5, 31 11, 33 13 C 35 11, 37.5 6.5, 40.5 9 C 49 15, 47 32, 33 34 Z" transform="rotate(216 33 32)"/>' +
+  '<path d="M33 34 C 19 32, 17 15, 25.5 9 C 28.5 6.5, 31 11, 33 13 C 35 11, 37.5 6.5, 40.5 9 C 49 15, 47 32, 33 34 Z" transform="rotate(288 33 32)"/>' +
+  '</g><ellipse cx="33" cy="33" rx="18" ry="14" fill="#fff5f8"/>' +
+  '<text x="33" y="34" text-anchor="middle" dominant-baseline="central" font-family="serif" font-weight="700" font-size="16" fill="#c2185b" lang="ja">字</text></svg>';
+
 const sameItem = (a, b) => a.type === b.type && a.ja === b.ja;
 const isStarred = (item) => loadStars().some((s) => sameItem(s, item));
 function toggleStar(item, btn) {
@@ -1094,7 +1106,7 @@ function renderSetList() {
   const stars = loadStars();
   const starCard = el("div", "set-card starred-set");
   starCard.appendChild(el("div", "set-info",
-    '<div class="set-title">★ Աստղանիշ</div><div class="set-sub">' + stars.length + " քարտ</div>"));
+    '<div class="set-title">' + SAKURA_JI + " Աստղանիշ</div><div class=\"set-sub\">" + stars.length + " քարտ</div>"));
   const sStudy = el("button", "btn btn-primary", "Սովորել");
   sStudy.type = "button";
   sStudy.addEventListener("click", () => {

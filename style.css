@@ -217,6 +217,8 @@ body.flash-mode #flash-view { display: block; }
 .set-card .set-title { font-weight: 700; font-size: 18px; }
 .set-card .set-sub { color: var(--ink-soft); font-size: 14px; }
 .set-card.starred-set { background: var(--accent-soft); border-color: #f3c6da; }
+.set-flower { height: 1.5em; width: auto; vertical-align: -0.4em; margin-right: 4px; }
+.set-card .set-title { display: flex; align-items: center; }
 
 .new-set {
   background: var(--card); border: 1px solid var(--line);
