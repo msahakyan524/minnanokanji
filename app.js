@@ -1253,7 +1253,7 @@ async function loadLevel(lvl, btn) {
       });
       grid.appendChild(t);
     });
-    $("#pick-hint").textContent = "Կարող ես ընտրել տարբեր մակարդակներից՝ ընտրվածը պահվում է։ Ընտրված՝ " + selectedKanji.size + "։";
+    $("#pick-hint").textContent = "N" + lvl + "՝ ընդամենը " + chars.length + " կանջի · ընտրված՝ " + selectedKanji.size + "։ Կարող ես ընտրել տարբեր մակարդակներից՝ ընտրվածը պահվում է։";
   } catch (e) {
     grid.innerHTML = '<p class="notice">Չհաջողվեց բեռնել մակարդակը։</p>';
   }
