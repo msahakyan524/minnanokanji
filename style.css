@@ -291,6 +291,9 @@ body.flash-mode #flash-view { display: block; }
 }
 .flashcard.swipe-right .fc-face { box-shadow: 0 0 0 3px var(--good) inset, var(--shadow); }
 .flashcard.swipe-left .fc-face { box-shadow: 0 0 0 3px #c0392b inset, var(--shadow); }
+@keyframes fc-in { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
+.flashcard.fc-enter { animation: fc-in 0.24s ease both; }
+@media (prefers-reduced-motion: reduce) { .flashcard.fc-enter { animation: none; } }
 .study-tip { text-align: center; color: var(--ink-soft); font-size: 13px; margin: 0 0 16px; }
 .fc-inner {
   position: relative; width: 100%; height: 100%;

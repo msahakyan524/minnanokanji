@@ -1358,6 +1358,10 @@ function showCard() {
   if (it.reading) back.appendChild(el("div", "fc-reading", '<span lang="ja">' + esc(it.reading) + "</span>"));
   back.appendChild(meaningBlock(it.meaning));
   back.appendChild(el("p", "fc-hint", "Սեղմիր նշանին՝ ամբողջական էջի համար"));
+  // gentle entrance so the next card feels fresh, not an instant swap
+  fc.classList.remove("fc-enter");
+  void fc.offsetWidth;            // restart the animation each card
+  fc.classList.add("fc-enter");
 }
 
 /* open the full dictionary page for a kanji/word; Back returns to flashcards */
@@ -1377,6 +1381,23 @@ function markCard(known) {
   }
   if (study.idx < study.items.length - 1) { study.idx++; showCard(); }
   else finishStudy();
+}
+/* same fly-off motion as a swipe, for the buttons and arrow keys */
+function markCardAnimated(known) {
+  const card = $("#flashcard");
+  if (!card || card.dataset.flying) return;   // ignore extra taps mid-flight
+  const dir = known ? 1 : -1;
+  card.dataset.flying = "1";
+  card.classList.add(known ? "swipe-right" : "swipe-left");
+  card.style.transition = "transform 0.25s ease";
+  card.style.transform = "translateX(" + (dir * 500) + "px) rotate(" + (dir * 15) + "deg)";
+  setTimeout(() => {
+    card.classList.remove("swipe-right", "swipe-left");
+    card.style.transition = "none";
+    card.style.transform = "";
+    delete card.dataset.flying;
+    markCard(known);          // now bring in the next card
+  }, 240);
 }
 function finishStudy() {
   $("#flashcard").classList.add("hidden");
@@ -1546,8 +1567,8 @@ $("#edit-set-words").addEventListener("change", async (e) => {
 });
 
 $("#flip-card").addEventListener("click", flipCard);
-$("#mark-known").addEventListener("click", () => markCard(true));
-$("#mark-unknown").addEventListener("click", () => markCard(false));
+$("#mark-known").addEventListener("click", () => markCardAnimated(true));
+$("#mark-unknown").addEventListener("click", () => markCardAnimated(false));
 $("#study-back").addEventListener("click", goBack);
 
 /* ---- swipe the card: right = know, left = don't know; tap = flip ---- */
@@ -1599,8 +1620,8 @@ document.addEventListener("keydown", (e) => {
   if ($("#flashcard").classList.contains("hidden")) return; // finished screen
   const tag = (e.target && e.target.tagName || "").toLowerCase();
   if (tag === "input" || tag === "textarea") return;
-  if (e.key === "ArrowRight") { e.preventDefault(); markCard(true); }
-  else if (e.key === "ArrowLeft") { e.preventDefault(); markCard(false); }
+  if (e.key === "ArrowRight") { e.preventDefault(); markCardAnimated(true); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); markCardAnimated(false); }
   else if (e.key === " " || e.code === "Space") { e.preventDefault(); flipCard(); }
 });
 
