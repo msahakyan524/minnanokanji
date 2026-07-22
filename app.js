@@ -281,12 +281,15 @@ function speak(text) {
 }
 const SPEAKER_SVG =
   '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M3 10v4h4l5 5V5L7 10H3zm13.5 2a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>';
-function speakerBtn(text) {
+// `reading` = the exact kana pronunciation, when we know it. Speaking the kana
+// stops the browser from guessing (and mis-reading) uncommon kanji words.
+function speakerBtn(text, reading) {
   const b = el("button", "speak-btn", SPEAKER_SVG);
   b.type = "button";
   b.title = "Լսել արտասանությունը";
   b.setAttribute("aria-label", "Լսել արտասանությունը");
-  b.addEventListener("click", (e) => { e.stopPropagation(); speak(text); });
+  b._say = reading || "";
+  b.addEventListener("click", (e) => { e.stopPropagation(); speak(b._say || text); });
   return b;
 }
 
@@ -384,7 +387,7 @@ async function renderKanji(ch, container) {
         ? '<ruby>' + esc(ex.written) + "<rt>" + esc(ex.reading) + "</rt></ruby>"
         : esc(ex.written);
       headRow.appendChild(copyable(el("span", "ex-word", '<span lang="ja">' + ruby + "</span>"), ex.written));
-      headRow.appendChild(speakerBtn(ex.written));
+      headRow.appendChild(speakerBtn(ex.written, ex.reading));
       li.appendChild(headRow);
       if (ex.meaning) li.appendChild(meaningBlock(ex.meaning, "ex-meaning-block"));
       ul.appendChild(li);
@@ -405,7 +408,8 @@ async function renderWord(surface, reading, opts = {}) {
   head.appendChild(copyable(el("span", "word-surface", '<span lang="ja">' + esc(surface) + "</span>"), surface));
   const readingSpan = el("span", "word-reading");
   head.appendChild(readingSpan);
-  head.appendChild(speakerBtn(surface));
+  const wordSpeaker = speakerBtn(surface, reading);
+  head.appendChild(wordSpeaker);
   block.appendChild(head);
   const mp = el("p", "word-meaning notice", '<span class="spin"></span>Փնտրում եմ իմաստը…');
   block.appendChild(mp);
@@ -418,7 +422,10 @@ async function renderWord(surface, reading, opts = {}) {
   const wm = await getWordMeaning(surface, reading);
   // always show a reading (for katakana this is the kana itself)
   const shownReading = (wm && wm.reading) || reading || (isKatakana(surface[0]) ? surface : "");
-  if (shownReading) readingSpan.innerHTML = '<span lang="ja">' + esc(shownReading) + "</span>";
+  if (shownReading) {
+    readingSpan.innerHTML = '<span lang="ja">' + esc(shownReading) + "</span>";
+    wordSpeaker._say = shownReading; // now speak the correct pronunciation
+  }
   head.appendChild(starBtn({ type: "word", ja: surface, reading: shownReading, meaning: (wm && wm.meaning) || "" }));
   if (wm && wm.meaning) {
     mp.replaceWith(meaningBlock(wm.meaning));

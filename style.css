@@ -197,6 +197,23 @@ main { max-width: 720px; margin: 0 auto; padding: 0 16px 32px; }
 }
 .flash-tab:hover { background: var(--accent-soft); }
 
+.lang-select {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--accent-ink);
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+.lang-select:hover { background: var(--accent-soft); }
+
 #flash-view { display: none; }
 body.flash-mode #input-panel,
 body.flash-mode #preview-panel,
