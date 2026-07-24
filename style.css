@@ -185,8 +185,8 @@ main { max-width: 720px; margin: 0 auto; padding: 0 16px 32px; }
 .flash-tab {
   position: absolute;
   top: 16px;
-  right: 16px;
-  min-height: 40px;
+  right: 68px;              /* leaves room for the round account button */
+  min-height: 44px;
   padding: 8px 16px;
   border: 1px solid var(--accent);
   border-radius: 999px;
@@ -197,6 +197,69 @@ main { max-width: 720px; margin: 0 auto; padding: 0 16px 32px; }
   cursor: pointer;
 }
 .flash-tab:hover { background: var(--accent-soft); }
+
+/* Account button (round, right of the Flashcards tab) */
+.account-tab {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; padding: 0;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--accent-ink);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.12s ease;
+}
+.account-tab:hover { background: var(--accent-soft); transform: translateY(-1px); }
+.account-tab.signed-in { background: var(--accent); color: #fff; }
+
+/* Account / admin panel */
+.modal {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 24px 16px;
+  background: rgba(51, 38, 44, 0.45);
+  overflow-y: auto;
+  animation: fade-in 0.2s ease;
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+body.modal-open { overflow: hidden; }
+.modal-card {
+  width: 100%; max-width: 460px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  animation: fc-in 0.24s ease both;
+}
+.auth-form { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.auth-actions { margin: 12px 0 4px; }
+.auth-msg { text-align: center; }
+.notice.bad { color: var(--bad); font-weight: 700; }
+.me-card { text-align: center; margin-bottom: 16px; }
+.me-name { font-size: 20px; font-weight: 700; }
+.me-mail { font-size: 14px; color: var(--ink-soft); }
+.stat-row { display: flex; justify-content: center; gap: 24px; margin-bottom: 16px; }
+.stat { display: flex; flex-direction: column; align-items: center; }
+.stat-n { font-size: 20px; font-weight: 700; color: var(--accent-ink); }
+.stat-l { font-size: 12px; color: var(--ink-soft); }
+
+.admin-title { font-size: 16px; margin: 16px 0 12px; }
+.admin-row {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 0; border-top: 1px solid var(--line);
+}
+.admin-name { font-weight: 700; }
+.admin-badge {
+  background: var(--accent); color: #fff; font-size: 12px;
+  padding: 2px 8px; border-radius: 999px;
+}
+.admin-mail, .admin-nums { font-size: 14px; color: var(--ink-soft); }
+.admin-bar { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.admin-bar span { display: block; height: 100%; background: var(--good); transition: width 0.4s ease; }
 
 .lang-select {
   position: absolute;
@@ -699,9 +762,18 @@ body.flash-mode #flash-view { display: block; }
 }
 .site-foot a { color: var(--accent); }
 
+/* the three header buttons need their own row before the title starts */
+@media (max-width: 560px) {
+  .site-head { padding-top: 72px; }
+  .flash-tab { padding: 8px 12px; right: 66px; }
+  .lang-select { padding: 8px 10px; }
+}
+
 @media (max-width: 420px) {
   .site-head h1 { font-size: 1.5rem; }
   .kanji-glyph { font-size: 3.75rem; }
+  .stat-row { gap: 16px; }
+  .modal { padding: 16px 12px; }
 
   /* Study screen on a phone: nothing cramped, nothing overlapping,
      every tap target at least 44px. */

@@ -1058,10 +1058,13 @@ $("#history-clear").addEventListener("click", () => {
 restoreState();
 
 /* ==================== FLASHCARDS (Quizlet-style) ==================== */
-/* All sets live in sessionStorage → they survive refresh, vanish when the tab
-   is closed. */
-function fcLoad(key) { try { return JSON.parse(sessionStorage.getItem(key) || "[]"); } catch (e) { return []; } }
-function fcSave(key, v) { try { sessionStorage.setItem(key, JSON.stringify(v)); } catch (e) {} }
+/* Sets live on the device (localStorage → they survive closing the tab).
+   If the person is logged in, cloud.js copies them to their account too. */
+function fcLoad(key) { try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch (e) { return []; } }
+function fcSave(key, v) {
+  try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) {}
+  if (window.CLOUD) window.CLOUD.pushSoon();
+}
 const SETS_KEY = "mk_fc_sets";
 const STARS_KEY = "mk_fc_stars";
 const loadSets = () => fcLoad(SETS_KEY);
@@ -1491,6 +1494,12 @@ function finishStudy() {
   done.classList.remove("hidden");
   done.innerHTML = "";
   const skipped = study.items.filter((i) => i.known === null).length;
+  if (window.CLOUD) {
+    window.CLOUD.logSession({
+      set_name: study.title, total: study.items.length,
+      known, unknown: unknown.length, skipped,
+    });
+  }
   done.appendChild(el("p", "fc-reading", "Վերջ " + SAKURA_PLAIN));
   done.appendChild(resultChart(known, unknown.length, skipped));
   if (unknown.length) {
