@@ -297,12 +297,10 @@
     const list = el("div", "invite-list");
     wrap.appendChild(list);
 
-    const add = document.createElement("form");
-    add.className = "invite-add";
-    add.innerHTML =
-      '<input class="set-name" id="new-code" type="text" placeholder="Նոր կոդ" autocomplete="off">' +
-      '<button type="submit" class="btn btn-sm btn-primary">Ավելացնել</button>';
-    wrap.appendChild(add);
+    const gen = btn("Ստեղծել մեկանգամյա կոդ", "btn btn-primary invite-gen");
+    wrap.appendChild(gen);
+    const hint = msg("Ամեն ընկերոջ համար՝ նոր կոդ։ Օգտագործվելուց հետո այն այլևս չի աշխատում։");
+    wrap.appendChild(hint);
     box.appendChild(wrap);
 
     async function draw() {
@@ -310,9 +308,14 @@
       const { data, error } = await sb.from("invites").select("code, label, uses, max_uses").order("created_at");
       if (error) { list.appendChild(msg("Չհաջողվեց բեռնել՝ " + error.message, "bad")); return; }
       (data || []).forEach((c) => {
-        const row = el("div", "invite-row");
-        row.appendChild(el("code", "invite-code", esc(c.code)));
-        row.appendChild(el("span", "invite-uses", "օգտագործվել է " + c.uses + " անգամ"));
+        const spent = c.max_uses != null && c.uses >= c.max_uses;
+        const row = el("div", "invite-row" + (spent ? " spent" : ""));
+        const code = el("code", "invite-code", esc(c.code));
+        code.title = "Սեղմիր՝ պատճենելու համար";
+        code.addEventListener("click", () => copy(c.code));
+        row.appendChild(code);
+        row.appendChild(el("span", "invite-uses", spent ? "օգտագործված" :
+          c.max_uses != null ? "մեկանգամյա" : "օգտագործվել է " + c.uses + " անգամ"));
         const del = btn("✕", "invite-del");
         del.setAttribute("aria-label", "Ջնջել կոդը");
         del.addEventListener("click", async () => {
@@ -325,17 +328,32 @@
       if (!(data || []).length) list.appendChild(msg("Կոդ չկա — ոչ ոք չի կարող գրանցվել։"));
     }
 
-    add.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const code = add.querySelector("#new-code").value.trim().toUpperCase();
-      if (!code) return;
-      const { error } = await sb.from("invites").insert({ code });
-      add.querySelector("#new-code").value = "";
-      if (error) list.appendChild(msg("Չհաջողվեց՝ " + error.message, "bad"));
-      draw();
+    gen.addEventListener("click", async () => {
+      gen.disabled = true;
+      const code = makeCode();
+      const { error } = await sb.from("invites").insert({ code, max_uses: 1, label: "one-time" });
+      gen.disabled = false;
+      if (error) { list.appendChild(msg("Չհաջողվեց՝ " + error.message, "bad")); return; }
+      await draw();
+      copy(code);
     });
 
     await draw();
+  }
+
+  /* readable random code, e.g. SAKURA-7Q4M (no 0/O/1/I mix-ups) */
+  function makeCode() {
+    const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let s = "";
+    for (let i = 0; i < 4; i++) s += abc[Math.floor(Math.random() * abc.length)];
+    return "SAKURA-" + s;
+  }
+
+  function copy(text) {
+    try {
+      navigator.clipboard.writeText(text);
+      if (typeof toast === "function") toast("Պատճենվեց՝ " + text);
+    } catch (e) {}
   }
 
   function el(tag, cls, html) {

@@ -262,8 +262,10 @@ body.modal-open { overflow: hidden; }
   color: var(--ink-soft); font-size: 16px; cursor: pointer; border-radius: 999px;
 }
 .invite-del:hover { color: var(--bad); background: var(--accent-soft); }
-.invite-add { display: flex; gap: 8px; }
-.invite-add .set-name { flex: 1; margin: 0; }
+.invite-gen { width: 100%; justify-content: center; }
+.invite-row.spent .invite-code { background: var(--line); color: var(--ink-soft); text-decoration: line-through; }
+.invite-code { cursor: pointer; }
+.invite-code:hover { background: var(--accent); color: #fff; }
 .admin-row {
   display: flex; flex-direction: column; gap: 8px;
   padding: 12px 0; border-top: 1px solid var(--line);
