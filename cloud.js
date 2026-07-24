@@ -173,6 +173,7 @@
     if (s.includes("already registered")) return "Այս փոստն արդեն գրանցված է — մուտք գործիր։";
     if (s.includes("password")) return "Գաղտնաբառը շատ կարճ է (նվազագույնը՝ 6)։";
     if (s.includes("invite") || s.includes("saving new user")) return "Հրավերի կոդը սխալ է կամ սպառված։";
+    if (s.includes("not confirmed")) return "Փոստը հաստատված չէ — բացիր Supabase → Authentication → Users և հաստատիր։";
     if (s.includes("rate limit")) return "Չափից շատ փորձեր — սպասիր մի քիչ։";
     return "Չհաջողվեց՝ " + m;
   }

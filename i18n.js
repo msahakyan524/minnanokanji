@@ -62,6 +62,7 @@
     "Հրավերի կոդ (միայն գրանցվելիս)": { en: "Invite code (only when signing up)", ru: "Код приглашения (только при регистрации)" },
     "Կոդը՝ Մարիայից": { en: "Code from Maria", ru: "Код от Марии" },
     "Հրավերի կոդը սխալ է կամ սպառված։": { en: "That invite code is wrong or used up.", ru: "Код приглашения неверный или израсходован." },
+    "Փոստը հաստատված չէ — բացիր Supabase → Authentication → Users և հաստատիր։": { en: "Email not confirmed — open Supabase → Authentication → Users and confirm it.", ru: "Почта не подтверждена — открой Supabase → Authentication → Users и подтверди." },
     "Չափից շատ փորձեր — սպասիր մի քիչ։": { en: "Too many attempts — wait a bit.", ru: "Слишком много попыток — подожди немного." },
     "Հրավերի կոդեր": { en: "Invite codes", ru: "Коды приглашения" },
     "Նոր կոդ": { en: "New code", ru: "Новый код" },
