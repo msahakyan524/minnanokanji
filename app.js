@@ -1328,8 +1328,7 @@ function startStudy(items, title, setRef, noPush) {
   study = { items, idx: 0, set: setRef || null, title };
   $("#study-done").classList.add("hidden");
   $("#flashcard").classList.remove("hidden");
-  const ctr = document.querySelector(".study-controls");
-  if (ctr) ctr.style.display = "";
+  document.querySelectorAll(".study-controls, .fc-nav, .study-tip").forEach((n) => { n.style.display = ""; });
   $("#study").classList.remove("hidden");
   showCard();
   window.scrollTo(0, 0);
@@ -1362,6 +1361,28 @@ function showCard() {
   fc.classList.remove("fc-enter");
   void fc.offsetWidth;            // restart the animation each card
   fc.classList.add("fc-enter");
+  const prev = $("#card-prev");
+  if (prev) prev.disabled = study.idx === 0;   // nothing before the first card
+}
+
+/* Move between cards without judging them (‹ › buttons and arrow keys) */
+function goToCard(step) {
+  const next = study.idx + step;
+  if (next < 0) return;
+  if (next >= study.items.length) return finishStudy();
+  study.idx = next;
+  showCard();
+}
+/* Say the current card out loud: the kana reading for words, the kanji itself
+   for single kanji (the browser reads it better than a list of readings). */
+function sayCard() {
+  const it = study.items[study.idx];
+  if (!it) return;
+  speak(it.type === "word" ? (it.reading || it.ja) : it.ja);
+  const b = $("#card-say");
+  if (!b) return;
+  b.classList.add("speaking");
+  setTimeout(() => b.classList.remove("speaking"), 1200);
 }
 
 /* open the full dictionary page for a kanji/word; Back returns to flashcards */
@@ -1401,8 +1422,7 @@ function markCardAnimated(known) {
 }
 function finishStudy() {
   $("#flashcard").classList.add("hidden");
-  const ctr = document.querySelector(".study-controls");
-  if (ctr) ctr.style.display = "none";
+  document.querySelectorAll(".study-controls, .fc-nav, .study-tip").forEach((n) => { n.style.display = "none"; });
   const known = study.items.filter((i) => i.known === true).length;
   const unknown = study.items.filter((i) => i.known === false);
   const done = $("#study-done");
@@ -1570,6 +1590,9 @@ $("#flip-card").addEventListener("click", flipCard);
 $("#mark-known").addEventListener("click", () => markCardAnimated(true));
 $("#mark-unknown").addEventListener("click", () => markCardAnimated(false));
 $("#study-back").addEventListener("click", goBack);
+$("#card-prev").addEventListener("click", () => goToCard(-1));
+$("#card-next").addEventListener("click", () => goToCard(1));
+$("#card-say").addEventListener("click", sayCard);
 
 /* ---- swipe the card: right = know, left = don't know; tap = flip ---- */
 (function setupCardGestures() {
@@ -1613,16 +1636,17 @@ $("#study-back").addEventListener("click", goBack);
   }
 })();
 
-/* ---- keyboard: → know, ← don't know, Space flip (only while studying) ---- */
+/* ---- keyboard: ← → move between cards, Space/Enter flip, S = say ---- */
 document.addEventListener("keydown", (e) => {
   if (!document.body.classList.contains("flash-mode")) return;
   if ($("#study").classList.contains("hidden")) return;
   if ($("#flashcard").classList.contains("hidden")) return; // finished screen
   const tag = (e.target && e.target.tagName || "").toLowerCase();
   if (tag === "input" || tag === "textarea") return;
-  if (e.key === "ArrowRight") { e.preventDefault(); markCardAnimated(true); }
-  else if (e.key === "ArrowLeft") { e.preventDefault(); markCardAnimated(false); }
+  if (e.key === "ArrowRight") { e.preventDefault(); goToCard(1); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); goToCard(-1); }
   else if (e.key === " " || e.code === "Space" || e.key === "Enter") { e.preventDefault(); flipCard(); }
+  else if (e.key === "s" || e.key === "S") { e.preventDefault(); sayCard(); }
 });
 
 renderSetList();

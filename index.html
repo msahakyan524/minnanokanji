@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="favicon.svg?v=1">
 <link rel="preconnect" href="https://kanjiapi.dev">
 <link rel="preconnect" href="https://jotoba.de">
-<link rel="stylesheet" href="style.css?v=56">
+<link rel="stylesheet" href="style.css?v=57">
 </head>
 <body>
   <div class="sakura" aria-hidden="true">
@@ -75,12 +75,23 @@
             <div class="fc-face fc-back"></div>
           </div>
         </div>
+        <div class="fc-nav">
+          <button type="button" id="card-prev" class="nav-btn" aria-label="Նախորդ քարտը" title="Նախորդ քարտը">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M15 5 8 12l7 7"/></svg>
+          </button>
+          <button type="button" id="card-say" class="nav-btn nav-say" aria-label="Լսել արտասանությունը" title="Լսել արտասանությունը">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M3 10v4h4l5 5V5L7 10H3zm13.5 2a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>
+          </button>
+          <button type="button" id="card-next" class="nav-btn" aria-label="Հաջորդ քարտը" title="Հաջորդ քարտը">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7"/></svg>
+          </button>
+        </div>
         <div class="btn-row study-controls">
           <button type="button" id="mark-unknown" class="btn">Չգիտեմ</button>
           <button type="button" id="flip-card" class="btn">Շրջել</button>
           <button type="button" id="mark-known" class="btn btn-primary">Գիտեմ</button>
         </div>
-        <p class="study-tip">Քաշիր աջ՝ գիտեմ, ձախ՝ չգիտեմ։ Համակարգչում՝ →  ←  և Space (շրջել)։</p>
+        <p class="study-tip">Սեղմիր քարտին՝ շրջելու համար։ ← → ՝ քարտերի միջև, 🔊՝ լսելու։ Քաշիր աջ՝ գիտեմ, ձախ՝ չգիտեմ։</p>
         <div id="study-done" class="hidden"></div>
       </div>
 
@@ -217,7 +228,7 @@
        Ձեռագիրը ճանաչում է Google-ը։ Ամբողջությամբ աշխատում է քո browser-ում։</p>
   </footer>
 
-  <script src="i18n.js?v=55" defer></script>
-  <script src="app.js?v=55" defer></script>
+  <script src="i18n.js?v=57" defer></script>
+  <script src="app.js?v=57" defer></script>
 </body>
 </html>
