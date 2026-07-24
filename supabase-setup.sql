@@ -130,7 +130,11 @@ security definer
 set search_path = public
 as $$
 begin
-  if (new.is_admin is distinct from old.is_admin) and not public.is_admin() then
+  -- auth.uid() is null when YOU run SQL in the Supabase dashboard, so the
+  -- owner can always fix things by hand; website visitors are still blocked.
+  if auth.uid() is not null
+     and (new.is_admin is distinct from old.is_admin)
+     and not public.is_admin() then
     raise exception 'only an admin can change admin rights';
   end if;
   return new;
