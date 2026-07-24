@@ -119,11 +119,15 @@ async function jotoba(query) {
 
 /* example COMPOUND words (2+ kanji) that use this kanji, from kanjiapi.dev.
    kanjiapi lists thousands of compounds and marks common ones via "priorities". */
+const wordsCache = new Map();   // raw word lists, so the same kanji is fetched once
 async function getExamples(ch, allowedSet) {
   try {
-    const r = await fetch("https://kanjiapi.dev/v1/words/" + encodeURIComponent(ch));
-    if (r.ok) {
-      const data = await r.json();
+    let data = wordsCache.get(ch);
+    if (!data) {
+      const r = await fetch("https://kanjiapi.dev/v1/words/" + encodeURIComponent(ch));
+      if (r.ok) { data = await r.json(); wordsCache.set(ch, data); }
+    }
+    if (data) {
       const out = [];
       const seen = new Set();
       for (const entry of data) {
@@ -1194,6 +1198,23 @@ function renderSetList() {
   });
 }
 
+/* Do the same job for many kanji at once, a few at a time.
+   Sequential lookups made an 80-kanji set take ~20s; 8 at a time is much
+   faster while still being polite to the free dictionary API. */
+async function mapLimit(list, limit, job, onProgress) {
+  const out = new Array(list.length);
+  let next = 0, done = 0;
+  async function worker() {
+    while (next < list.length) {
+      const i = next++;
+      try { out[i] = await job(list[i], i); } catch (e) { out[i] = null; }
+      if (onProgress) onProgress(++done, list.length);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, list.length) }, worker));
+  return out;
+}
+
 /* ---- new set: level picker + kanji grid ---- */
 let selectedKanji = new Set();
 let currentLevel = null;
@@ -1324,24 +1345,27 @@ $("#create-set").addEventListener("click", async () => {
   let allowed = null;
   if (addWords) {
     let hardest = 5;
-    for (const lvl of [1, 2, 3, 4, 5]) {
-      const list = new Set(await jlptList(String(lvl)));
-      for (const ch of chosen) if (list.has(ch)) hardest = Math.min(hardest, lvl);
-    }
+    const lists = await Promise.all([1, 2, 3, 4, 5].map((lvl) => jlptList(String(lvl))));
+    lists.forEach((arr, i) => {
+      const list = new Set(arr);
+      for (const ch of chosen) if (list.has(ch)) hardest = Math.min(hardest, i + 1);
+    });
     allowed = await allowedKanjiForLevel(String(hardest));
   }
+  const rows = await mapLimit(chosen, 8, async (ch) => ({
+    ch,
+    info: await getKanji(ch),
+    words: addWords ? await getExamples(ch, allowed) : [],
+  }), (d, t) => { btn.textContent = "Ստեղծում… " + d + " / " + t; });
   const items = [];
-  for (const ch of chosen) {
-    const info = await getKanji(ch);
-    if (info) {
-      const reading = [...(info.on || []), ...(info.kun || [])].join("・");
-      items.push({ type: "kanji", ja: ch, reading, meaning: (info.meanings || []).join(", "), level: info.jlpt || null, known: null });
+  rows.forEach((row) => {
+    if (!row) return;
+    if (row.info) {
+      const reading = [...(row.info.on || []), ...(row.info.kun || [])].join("・");
+      items.push({ type: "kanji", ja: row.ch, reading, meaning: (row.info.meanings || []).join(", "), level: row.info.jlpt || null, known: null });
     }
-    if (addWords) {
-      const ex = await getExamples(ch, allowed);
-      ex.forEach((w) => items.push({ type: "word", ja: w.written, reading: w.reading, meaning: w.meaning, known: null }));
-    }
-  }
+    row.words.forEach((w) => items.push({ type: "word", ja: w.written, reading: w.reading, meaning: w.meaning, known: null }));
+  });
   const sets = loadSets();
   sets.unshift({ id: "s" + Date.now(), name, items });
   saveSets(sets);
@@ -1632,23 +1656,23 @@ $("#edit-add-confirm").addEventListener("click", async () => {
   b.textContent = "Ավելացնում…";
   const addWords = $("#edit-add-words").checked;
   const allowed = addWords ? await allowedKanjiForLevel(addLevel || "5") : null;
-  for (const ch of chosen) {
-    if (!editState.items.some((it) => it.type === "kanji" && it.ja === ch)) {
-      const info = await getKanji(ch);
-      if (info) {
-        const reading = [...(info.on || []), ...(info.kun || [])].join("・");
-        editState.items.push({ type: "kanji", ja: ch, reading, meaning: (info.meanings || []).join(", "), level: info.jlpt || null, known: null });
+  const rows = await mapLimit(chosen, 8, async (ch) => ({
+    ch,
+    info: await getKanji(ch),
+    words: addWords ? await getExamples(ch, allowed) : [],
+  }), (d, t) => { b.textContent = "Ավելացնում… " + d + " / " + t; });
+  rows.forEach((row) => {
+    if (!row) return;
+    if (row.info && !editState.items.some((it) => it.type === "kanji" && it.ja === row.ch)) {
+      const reading = [...(row.info.on || []), ...(row.info.kun || [])].join("・");
+      editState.items.push({ type: "kanji", ja: row.ch, reading, meaning: (row.info.meanings || []).join(", "), level: row.info.jlpt || null, known: null });
+    }
+    row.words.forEach((w) => {
+      if (!editState.items.some((it) => it.type === "word" && it.ja === w.written)) {
+        editState.items.push({ type: "word", ja: w.written, reading: w.reading, meaning: w.meaning, known: null });
       }
-    }
-    if (addWords) {
-      const ex = await getExamples(ch, allowed);
-      ex.forEach((w) => {
-        if (!editState.items.some((it) => it.type === "word" && it.ja === w.written)) {
-          editState.items.push({ type: "word", ja: w.written, reading: w.reading, meaning: w.meaning, known: null });
-        }
-      });
-    }
-  }
+    });
+  });
   addSel = new Set();
   $("#edit-add-words").checked = false;
   $("#edit-add").classList.add("hidden");
@@ -1675,16 +1699,18 @@ $("#edit-set-words").addEventListener("change", async (e) => {
   cb.disabled = true;
   const kanjis = editState.items.filter((it) => it.type === "kanji");
   let added = 0;
-  for (const k of kanjis) {
+  const found = await mapLimit(kanjis, 8, async (k) => {
     const allowed = k.level ? await allowedKanjiForLevel(String(k.level)) : null;
-    const ex = await getExamples(k.ja, allowed);
-    ex.forEach((w) => {
+    return getExamples(k.ja, allowed);
+  });
+  found.forEach((ex) => {
+    (ex || []).forEach((w) => {
       if (!editState.items.some((it) => it.type === "word" && it.ja === w.written)) {
         editState.items.push({ type: "word", ja: w.written, reading: w.reading, meaning: w.meaning, known: null });
         added++;
       }
     });
-  }
+  });
   cb.disabled = false;
   renderEditItems();
   toast("Ավելացվեց " + added + " բառ");
