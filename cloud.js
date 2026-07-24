@@ -117,6 +117,8 @@
       '<input class="set-name" id="auth-email" type="email" autocomplete="email" required placeholder="anun@mail.com">' +
       '<label class="edit-label" for="auth-pass">Գաղտնաբառ</label>' +
       '<input class="set-name" id="auth-pass" type="password" autocomplete="current-password" required minlength="6" placeholder="Առնվազն 6 նշան">' +
+      '<label class="edit-label" for="auth-code">Հրավերի կոդ (միայն գրանցվելիս)</label>' +
+      '<input class="set-name" id="auth-code" type="text" autocomplete="off" placeholder="Կոդը՝ Մարիայից">' +
       '<div class="btn-row auth-actions">' +
       '<button type="submit" class="btn btn-primary" id="auth-login">Մուտք գործել</button>' +
       '<button type="button" class="btn" id="auth-signup">Գրանցվել</button>' +
@@ -152,9 +154,15 @@
     const email = $("#auth-email").value.trim();
     const password = $("#auth-pass").value;
     const display_name = $("#auth-name").value.trim();
+    const invite_code = $("#auth-code").value.trim();
     if (!email || password.length < 6) return say("Պետք է էլ. փոստ և առնվազն 6 նշան գաղտնաբառ։", true);
     say("Գրանցում…");
-    const { data, error } = await sb.auth.signUp({ email, password, options: { data: { display_name } } });
+    // the real check is in the database; this one just gives a clear message
+    const okCode = await sb.rpc("check_invite", { code: invite_code });
+    if (okCode.data === false) return say("Հրավերի կոդը սխալ է կամ սպառված։", true);
+    const { data, error } = await sb.auth.signUp({
+      email, password, options: { data: { display_name, invite_code } },
+    });
     if (error) return say(friendly(error.message), true);
     if (data && data.user && !data.session) say("Ստուգիր փոստդ՝ հաստատելու համար։");
   }
@@ -164,6 +172,8 @@
     if (s.includes("invalid login")) return "Սխալ փոստ կամ գաղտնաբառ։";
     if (s.includes("already registered")) return "Այս փոստն արդեն գրանցված է — մուտք գործիր։";
     if (s.includes("password")) return "Գաղտնաբառը շատ կարճ է (նվազագույնը՝ 6)։";
+    if (s.includes("invite") || s.includes("saving new user")) return "Հրավերի կոդը սխալ է կամ սպառված։";
+    if (s.includes("rate limit")) return "Չափից շատ փորձեր — սպասիր մի քիչ։";
     return "Չհաջողվեց՝ " + m;
   }
 
@@ -242,6 +252,7 @@
     });
 
     box.innerHTML = "";
+    await renderInvites(box);
     box.appendChild(el("h3", "admin-title", "Օգտատերեր (" + (pRes.data || []).length + ")"));
 
     const people = (pRes.data || []).slice().sort((a, b) =>
@@ -276,6 +287,54 @@
       row.appendChild(nums);
       box.appendChild(row);
     });
+  }
+
+  /* invite codes: friends can only sign up with one of these */
+  async function renderInvites(box) {
+    const wrap = el("div", "invite-box");
+    wrap.appendChild(el("h3", "admin-title", "Հրավերի կոդեր"));
+    const list = el("div", "invite-list");
+    wrap.appendChild(list);
+
+    const add = document.createElement("form");
+    add.className = "invite-add";
+    add.innerHTML =
+      '<input class="set-name" id="new-code" type="text" placeholder="Նոր կոդ" autocomplete="off">' +
+      '<button type="submit" class="btn btn-sm btn-primary">Ավելացնել</button>';
+    wrap.appendChild(add);
+    box.appendChild(wrap);
+
+    async function draw() {
+      list.innerHTML = "";
+      const { data, error } = await sb.from("invites").select("code, label, uses, max_uses").order("created_at");
+      if (error) { list.appendChild(msg("Չհաջողվեց բեռնել՝ " + error.message, "bad")); return; }
+      (data || []).forEach((c) => {
+        const row = el("div", "invite-row");
+        row.appendChild(el("code", "invite-code", esc(c.code)));
+        row.appendChild(el("span", "invite-uses", "օգտագործվել է " + c.uses + " անգամ"));
+        const del = btn("✕", "invite-del");
+        del.setAttribute("aria-label", "Ջնջել կոդը");
+        del.addEventListener("click", async () => {
+          await sb.from("invites").delete().eq("code", c.code);
+          draw();
+        });
+        row.appendChild(del);
+        list.appendChild(row);
+      });
+      if (!(data || []).length) list.appendChild(msg("Կոդ չկա — ոչ ոք չի կարող գրանցվել։"));
+    }
+
+    add.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const code = add.querySelector("#new-code").value.trim().toUpperCase();
+      if (!code) return;
+      const { error } = await sb.from("invites").insert({ code });
+      add.querySelector("#new-code").value = "";
+      if (error) list.appendChild(msg("Չհաջողվեց՝ " + error.message, "bad"));
+      draw();
+    });
+
+    await draw();
   }
 
   function el(tag, cls, html) {

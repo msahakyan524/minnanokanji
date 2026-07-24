@@ -248,6 +248,22 @@ body.modal-open { overflow: hidden; }
 .stat-l { font-size: 12px; color: var(--ink-soft); }
 
 .admin-title { font-size: 16px; margin: 16px 0 12px; }
+.invite-box { border-bottom: 1px solid var(--line); padding-bottom: 16px; }
+.invite-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.invite-row { display: flex; align-items: center; gap: 12px; }
+.invite-code {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 16px; font-weight: 700; color: var(--accent-ink);
+  background: var(--accent-soft); padding: 4px 12px; border-radius: 999px;
+}
+.invite-uses { font-size: 14px; color: var(--ink-soft); flex: 1; }
+.invite-del {
+  min-width: 44px; min-height: 44px; border: none; background: none;
+  color: var(--ink-soft); font-size: 16px; cursor: pointer; border-radius: 999px;
+}
+.invite-del:hover { color: var(--bad); background: var(--accent-soft); }
+.invite-add { display: flex; gap: 8px; }
+.invite-add .set-name { flex: 1; margin: 0; }
 .admin-row {
   display: flex; flex-direction: column; gap: 8px;
   padding: 12px 0; border-top: 1px solid var(--line);

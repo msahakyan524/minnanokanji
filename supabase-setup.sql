@@ -44,6 +44,20 @@ create table if not exists public.study_sessions (
 create index if not exists study_sessions_user_idx
   on public.study_sessions (user_id, created_at desc);
 
+-- invite codes: nobody can sign up without one (except the very first person,
+-- who becomes the admin). max_uses = null means the code never runs out.
+create table if not exists public.invites (
+  code       text primary key,
+  label      text,
+  max_uses   integer,
+  uses       integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+insert into public.invites (code, label)
+values ('SAKURA2026', 'starter code')
+on conflict (code) do nothing;
+
 -- ---------- "is the person asking an admin?" ----------
 -- security definer = this function is allowed to look at the profiles table
 -- even while the security rules are being decided (otherwise it loops forever).
@@ -66,8 +80,26 @@ set search_path = public
 as $$
 declare
   admin_exists boolean;
+  given_code   text;
+  inv          public.invites%rowtype;
 begin
   select exists (select 1 from public.profiles where is_admin) into admin_exists;
+
+  -- everyone after the admin needs a valid invite code
+  if admin_exists then
+    given_code := upper(trim(coalesce(new.raw_user_meta_data ->> 'invite_code', '')));
+    if given_code = '' then
+      raise exception 'invite code required';
+    end if;
+    select * into inv from public.invites i where upper(i.code) = given_code;
+    if not found then
+      raise exception 'invite code invalid';
+    end if;
+    if inv.max_uses is not null and inv.uses >= inv.max_uses then
+      raise exception 'invite code used up';
+    end if;
+    update public.invites set uses = uses + 1 where code = inv.code;
+  end if;
 
   insert into public.profiles (id, email, display_name, is_admin)
   values (
@@ -110,7 +142,38 @@ create trigger profiles_guard_admin
   before update on public.profiles
   for each row execute function public.guard_is_admin();
 
+-- ---------- lets the signup form say "wrong code" before it tries ----------
+create or replace function public.check_invite(code text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    not exists (select 1 from public.profiles where is_admin)   -- first ever signup
+    or exists (
+      select 1 from public.invites i
+      where upper(i.code) = upper(trim(check_invite.code))
+        and (i.max_uses is null or i.uses < i.max_uses)
+    );
+$$;
+
 -- ---------- turn the rules on ----------
+alter table public.invites enable row level security;
+
+drop policy if exists invites_admin_read on public.invites;
+create policy invites_admin_read on public.invites
+  for select using (public.is_admin());
+
+drop policy if exists invites_admin_write on public.invites;
+create policy invites_admin_write on public.invites
+  for insert with check (public.is_admin());
+
+drop policy if exists invites_admin_delete on public.invites;
+create policy invites_admin_delete on public.invites
+  for delete using (public.is_admin());
+
 alter table public.profiles       enable row level security;
 alter table public.user_data      enable row level security;
 alter table public.study_sessions enable row level security;
