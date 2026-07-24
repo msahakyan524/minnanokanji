@@ -221,7 +221,7 @@ create policy sessions_insert on public.study_sessions
 insert into public.profiles (id, email, display_name, is_admin)
 select u.id, u.email,
        coalesce(nullif(u.raw_user_meta_data ->> 'display_name', ''), split_part(u.email, '@', 1)),
-       not exists (select 1 from public.profiles where is_admin)
+       false          -- the block at the very bottom picks the admin
 from auth.users u
 where not exists (select 1 from public.profiles p where p.id = u.id);
 
