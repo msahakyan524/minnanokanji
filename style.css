@@ -239,6 +239,50 @@ body.modal-open { overflow: hidden; }
 .auth-actions { margin: 12px 0 4px; }
 .auth-msg { text-align: center; }
 .notice.bad { color: var(--bad); font-weight: 700; }
+/* Profile picture */
+.avatar {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 999px; background: var(--accent-soft);
+  overflow: hidden; flex: none;
+}
+.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.avatar-lg { width: 88px; height: 88px; font-size: 44px; }
+.avatar-sm { width: 44px; height: 44px; font-size: 22px; }
+.avatar-btn {
+  position: relative; border: none; background: none; padding: 0; cursor: pointer;
+  margin: 0 auto 8px; display: block; border-radius: 999px;
+}
+.avatar-btn:hover .avatar { box-shadow: 0 0 0 3px var(--accent); }
+.avatar-edit {
+  position: absolute; right: 0; bottom: 0;
+  width: 28px; height: 28px; border-radius: 999px;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 14px;
+}
+.avatar-picker {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 12px; margin-bottom: 16px;
+  animation: fc-in 0.2s ease both;
+}
+.avatar-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 12px; }
+.avatar-choice {
+  width: 48px; height: 48px; font-size: 26px; line-height: 1;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--card); cursor: pointer;
+}
+.avatar-choice:hover { background: var(--accent-soft); border-color: var(--accent); }
+.avatar-upload { width: 100%; justify-content: center; cursor: pointer; }
+.avatar-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+/* My own progress */
+.my-progress { margin-bottom: 16px; }
+.my-progress .notice { text-align: center; margin: 8px 0; }
+.sess-list { display: flex; flex-direction: column; gap: 4px; }
+.sess-row { display: flex; align-items: center; gap: 12px; font-size: 14px; }
+.sess-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sess-score { font-weight: 700; color: var(--accent-ink); }
+.sess-when { color: var(--ink-soft); }
+
 .me-card { text-align: center; margin-bottom: 16px; }
 .me-name { font-size: 20px; font-weight: 700; }
 .me-mail { font-size: 14px; color: var(--ink-soft); }
@@ -266,6 +310,7 @@ body.modal-open { overflow: hidden; }
 .invite-row.spent .invite-code { background: var(--line); color: var(--ink-soft); text-decoration: line-through; }
 .invite-code { cursor: pointer; }
 .invite-code:hover { background: var(--accent); color: #fff; }
+.admin-who { display: flex; align-items: center; gap: 12px; }
 .admin-row {
   display: flex; flex-direction: column; gap: 8px;
   padding: 12px 0; border-top: 1px solid var(--line);

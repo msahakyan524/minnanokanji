@@ -185,15 +185,19 @@
 
     const card = document.createElement("div");
     card.className = "me-card";
-    card.innerHTML =
-      '<div class="me-name">' + esc((profile && profile.display_name) || me.email) + "</div>" +
-      '<div class="me-mail">' + esc(me.email) + "</div>";
+    card.appendChild(avatarButton());
+    card.appendChild(el("div", "me-name", esc((profile && profile.display_name) || me.email)));
+    card.appendChild(el("div", "me-mail", esc(me.email)));
     out.appendChild(card);
     out.appendChild(statRow([
       ["Հավաքածուներ", sets.length],
       ["Քարտեր", cards],
       ["Գիտեմ", known],
     ]));
+
+    const prog = el("div", "my-progress");
+    out.appendChild(prog);
+    fillProgress(prog, cards, known);
 
     const row = document.createElement("div");
     row.className = "btn-row auth-actions";
@@ -206,6 +210,140 @@
     outBtn.addEventListener("click", async () => { await sb.auth.signOut(); });
     row.appendChild(outBtn);
     out.appendChild(row);
+  }
+
+  /* ---------------- profile picture ---------------- */
+  /* Pictures are shrunk to a 128px square and kept as text on the profile row,
+     so there is nothing extra to set up in Supabase. */
+  const FACES = ["🌸", "🐱", "🦊", "🐼", "🍡", "🍜", "🗻", "🎋", "🌙", "⭐", "🐧", "🍥"];
+
+  function avatarImg(value, cls) {
+    const box = el("div", "avatar " + (cls || ""));
+    if (value && value.startsWith("data:")) {
+      const im = document.createElement("img");
+      im.src = value;
+      im.alt = "";
+      box.appendChild(im);
+    } else {
+      box.textContent = value || "🌸";
+    }
+    return box;
+  }
+
+  function avatarButton() {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "avatar-btn";
+    b.title = "Փոխել նկարը";
+    b.setAttribute("aria-label", "Փոխել նկարը");
+    b.appendChild(avatarImg(profile && profile.avatar, "avatar-lg"));
+    b.appendChild(el("span", "avatar-edit", "✎"));
+    b.addEventListener("click", openAvatarPicker);
+    return b;
+  }
+
+  function openAvatarPicker() {
+    const out = $("#account-body");
+    const old = out.querySelector(".avatar-picker");
+    if (old) { old.remove(); return; }
+
+    const pick = el("div", "avatar-picker");
+    const grid = el("div", "avatar-grid");
+    FACES.forEach((f) => {
+      const b = btn(f, "avatar-choice");
+      b.addEventListener("click", () => saveAvatar(f));
+      grid.appendChild(b);
+    });
+    pick.appendChild(grid);
+
+    const up = document.createElement("label");
+    up.className = "btn btn-sm avatar-upload";
+    up.innerHTML = '<span>Վերբեռնել լուսանկար</span>';
+    const file = document.createElement("input");
+    file.type = "file";
+    file.accept = "image/*";
+    file.addEventListener("change", async () => {
+      const f = file.files && file.files[0];
+      if (!f) return;
+      try { saveAvatar(await shrink(f)); } catch (e) { toastSafe("Չհաջողվեց՝ " + e.message); }
+    });
+    up.appendChild(file);
+    pick.appendChild(up);
+
+    out.querySelector(".me-card").insertAdjacentElement("afterend", pick);
+  }
+
+  /* squeeze any photo into a small square so it fits in one database row */
+  function shrink(fileObj) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(fileObj);
+      const img = new Image();
+      img.onload = () => {
+        const S = 128;
+        const c = document.createElement("canvas");
+        c.width = S; c.height = S;
+        const side = Math.min(img.width, img.height);   // centre square crop
+        c.getContext("2d").drawImage(img, (img.width - side) / 2, (img.height - side) / 2,
+          side, side, 0, 0, S, S);
+        URL.revokeObjectURL(url);
+        resolve(c.toDataURL("image/jpeg", 0.8));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("bad image")); };
+      img.src = url;
+    });
+  }
+
+  async function saveAvatar(value) {
+    const { error } = await sb.from("profiles").update({ avatar: value }).eq("id", me.id);
+    if (error) return toastSafe("Չհաջողվեց՝ " + error.message);
+    profile = Object.assign({}, profile, { avatar: value });
+    renderPanel();
+    toastSafe("Նկարը փոխվեց");
+  }
+
+  function toastSafe(t) { if (typeof toast === "function") toast(t); }
+
+  /* ---------------- my own progress ---------------- */
+  async function fillProgress(box, cards, known) {
+    box.appendChild(el("h3", "admin-title", "Իմ առաջընթացը"));
+    const pct = cards ? Math.round((known / cards) * 100) : 0;
+    const bar = el("div", "admin-bar");
+    bar.innerHTML = '<span style="width:' + pct + '%"></span>';
+    box.appendChild(bar);
+    box.appendChild(el("p", "notice", known + " / " + cards + " քարտ · " + pct + "%"));
+
+    const { data } = await sb.from("study_sessions")
+      .select("set_name, known, total, created_at")
+      .order("created_at", { ascending: false }).limit(7);
+    const sess = data || [];
+    if (!sess.length) {
+      box.appendChild(msg("Դեռ պարապմունք չկա — սկսիր ֆլեշքարտերից։"));
+      return;
+    }
+    box.appendChild(el("p", "notice", "Օրերի շարք՝ " + streak(sess)));
+    const list = el("div", "sess-list");
+    sess.forEach((s) => {
+      const r = el("div", "sess-row");
+      r.appendChild(el("span", "sess-name", esc(s.set_name || "—")));
+      r.appendChild(el("span", "sess-score", s.known + "/" + s.total));
+      r.appendChild(el("span", "sess-when", when(s.created_at)));
+      list.appendChild(r);
+    });
+    box.appendChild(list);
+  }
+
+  /* how many days in a row (counting back from today) had a session */
+  function streak(sessions) {
+    const days = new Set(sessions.map((s) => String(s.created_at).slice(0, 10)));
+    let n = 0;
+    const d = new Date();
+    for (;;) {
+      const key = d.toISOString().slice(0, 10);
+      if (!days.has(key)) break;
+      n++;
+      d.setDate(d.getDate() - 1);
+    }
+    return n;
   }
 
   function btn(text, cls) {
@@ -239,7 +377,7 @@
     box.innerHTML = '<p class="notice">Բեռնում…</p>';
 
     const [pRes, dRes, sRes] = await Promise.all([
-      sb.from("profiles").select("id, email, display_name, is_admin, created_at, last_seen"),
+      sb.from("profiles").select("id, email, display_name, avatar, is_admin, created_at, last_seen"),
       sb.from("user_data").select("user_id, sets, updated_at"),
       sb.from("study_sessions").select("user_id, known, total, created_at").order("created_at", { ascending: false }),
     ]);
@@ -268,9 +406,12 @@
       const pct = cards ? Math.round((known / cards) * 100) : 0;
 
       const row = el("div", "admin-row");
-      row.appendChild(el("div", "admin-who",
+      const who = el("div", "admin-who");
+      who.appendChild(avatarImg(p.avatar, "avatar-sm"));
+      who.appendChild(el("div", null,
         '<div class="admin-name">' + esc(p.display_name || p.email) + (p.is_admin ? ' <span class="admin-badge">admin</span>' : "") +
         '</div><div class="admin-mail">' + esc(p.email || "") + "</div>"));
+      row.appendChild(who);
 
       const bar = el("div", "admin-bar");
       bar.innerHTML = '<span style="width:' + pct + '%"></span>';

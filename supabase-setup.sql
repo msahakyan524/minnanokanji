@@ -23,6 +23,9 @@ create table if not exists public.profiles (
   last_seen    timestamptz not null default now()
 );
 
+-- profile picture: either one emoji, or a small photo squeezed into text
+alter table public.profiles add column if not exists avatar text;
+
 create table if not exists public.user_data (
   user_id    uuid primary key references auth.users on delete cascade,
   sets       jsonb not null default '[]'::jsonb,
