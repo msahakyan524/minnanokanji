@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="favicon.svg?v=1">
 <link rel="preconnect" href="https://kanjiapi.dev">
 <link rel="preconnect" href="https://jotoba.de">
-<link rel="stylesheet" href="style.css?v=57">
+<link rel="stylesheet" href="style.css?v=58">
 </head>
 <body>
   <div class="sakura" aria-hidden="true">
@@ -59,6 +59,10 @@
         </div>
         <label class="chk"><input type="checkbox" id="add-words"> Ավելացնել նաև այս կանջիներով բառեր</label>
         <p id="pick-hint" class="notice">Ընտրիր մակարդակ, ապա սեղմիր կանջիների վրա։</p>
+        <div id="grid-tools" class="grid-tools hidden">
+          <button type="button" class="btn btn-sm" id="select-all-lvl">Ընտրել ամբողջ մակարդակը</button>
+          <button type="button" class="btn btn-sm" id="clear-sel">Մաքրել ընտրվածը</button>
+        </div>
         <div id="kanji-grid" class="kanji-grid"></div>
         <button type="button" class="btn btn-primary" id="create-set" disabled>Ստեղծել հավաքածու</button>
       </details>
@@ -119,6 +123,9 @@
             <button type="button" class="btn lvl-btn add-lvl" data-lvl="1">N1</button>
           </div>
           <label class="chk"><input type="checkbox" id="edit-add-words"> Ավելացնել նաև այս կանջիներով բառեր</label>
+          <div id="add-tools" class="grid-tools hidden">
+            <button type="button" class="btn btn-sm" id="add-all-lvl">Ընտրել ամբողջ մակարդակը</button>
+          </div>
           <div id="edit-add-grid" class="kanji-grid"></div>
           <button type="button" class="btn btn-primary" id="edit-add-confirm" disabled>Ավելացնել ընտրվածները</button>
         </div>
@@ -228,7 +235,7 @@
        Ձեռագիրը ճանաչում է Google-ը։ Ամբողջությամբ աշխատում է քո browser-ում։</p>
   </footer>
 
-  <script src="i18n.js?v=57" defer></script>
-  <script src="app.js?v=57" defer></script>
+  <script src="i18n.js?v=58" defer></script>
+  <script src="app.js?v=58" defer></script>
 </body>
 </html>

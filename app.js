@@ -1263,15 +1263,51 @@ async function loadLevel(lvl, btn) {
       });
       grid.appendChild(t);
     });
+    levelChars = chars;
+    $("#grid-tools").classList.remove("hidden");
+    updateSelectAllBtn();
     $("#pick-hint").textContent = "N" + lvl + "՝ ընդամենը " + chars.length + " կանջի · ընտրված՝ " + selectedKanji.size + "։ Կարող ես ընտրել տարբեր մակարդակներից՝ ընտրվածը պահվում է։";
   } catch (e) {
     grid.innerHTML = '<p class="notice">Չհաջողվեց բեռնել մակարդակը։</p>';
   }
 }
+
+/* ---- take a whole level in one tap (no clicking 80 tiles) ---- */
+let levelChars = [];
+function levelAllSelected() {
+  return levelChars.length > 0 && levelChars.every((ch) => selectedKanji.has(ch));
+}
+function updateSelectAllBtn() {
+  const b = $("#select-all-lvl");
+  if (!b || !levelChars.length) return;
+  b.textContent = levelAllSelected()
+    ? "Հանել ամբողջ N" + currentLevel + "-ը"
+    : "Ընտրել ամբողջ N" + currentLevel + "-ը (" + levelChars.length + ")";
+  b.classList.toggle("btn-primary", !levelAllSelected());
+}
+function paintGridSelection() {
+  document.querySelectorAll("#kanji-grid .kg-tile").forEach((t) => {
+    t.classList.toggle("sel", selectedKanji.has(t.dataset.ch));
+  });
+}
+$("#select-all-lvl").addEventListener("click", () => {
+  if (levelAllSelected()) levelChars.forEach((ch) => selectedKanji.delete(ch));
+  else levelChars.forEach((ch) => selectedKanji.add(ch));
+  paintGridSelection();
+  updateCreateBtn();
+  updateSelectAllBtn();
+});
+$("#clear-sel").addEventListener("click", () => {
+  selectedKanji.clear();
+  paintGridSelection();
+  updateCreateBtn();
+  updateSelectAllBtn();
+});
 function updateCreateBtn() {
   const b = $("#create-set");
   b.disabled = selectedKanji.size === 0;
   b.textContent = selectedKanji.size ? "Ստեղծել հավաքածու (" + selectedKanji.size + ")" : "Ստեղծել հավաքածու";
+  updateSelectAllBtn();
 }
 document.querySelectorAll(".lvl-btn").forEach((b) => b.addEventListener("click", () => loadLevel(b.dataset.lvl, b)));
 
@@ -1313,7 +1349,9 @@ $("#create-set").addEventListener("click", async () => {
   $("#set-name").value = "";
   $("#add-words").checked = false;
   selectedKanji = new Set();
+  levelChars = [];
   $("#kanji-grid").innerHTML = "";
+  $("#grid-tools").classList.add("hidden");
   $("#pick-hint").textContent = "Ընտրիր մակարդակ, ապա սեղմիր կանջիների վրա։";
   document.querySelectorAll(".lvl-btn").forEach((b) => b.classList.remove("active"));
   btn.textContent = "Ստեղծել հավաքածու";
@@ -1428,8 +1466,9 @@ function finishStudy() {
   const done = $("#study-done");
   done.classList.remove("hidden");
   done.innerHTML = "";
+  const skipped = study.items.filter((i) => i.known === null).length;
   done.appendChild(el("p", "fc-reading", "Վերջ " + SAKURA_PLAIN));
-  done.appendChild(el("p", null, "Գիտեմ՝ " + known + " · Չգիտեմ՝ " + unknown.length));
+  done.appendChild(resultChart(known, unknown.length, skipped));
   if (unknown.length) {
     const again = el("button", "btn btn-primary", "Կրկնել չիմացածները (" + unknown.length + ")");
     again.type = "button";
@@ -1441,6 +1480,42 @@ function finishStudy() {
   back.addEventListener("click", goBack);
   done.appendChild(back);
 }
+/* Round result chart: green = know, red = don't know, grey = skipped.
+   Drawn as one SVG ring; each slice is a piece of the ring's dashed outline. */
+function resultChart(known, unknown, skipped) {
+  const total = known + unknown + skipped || 1;
+  const R = 52, C = 2 * Math.PI * R;
+  const slices = [
+    { n: known, color: "var(--good)", label: "Գիտեմ" },
+    { n: unknown, color: "var(--bad)", label: "Չգիտեմ" },
+    { n: skipped, color: "#e2cdd7", label: "Բաց թողնված" },
+  ];
+  let arcs = "", at = 0;
+  slices.filter((s) => s.n > 0).forEach((s) => {
+    const len = (s.n / total) * C;
+    arcs += '<circle cx="70" cy="70" r="' + R + '" fill="none" stroke="' + s.color +
+            '" stroke-width="20" stroke-dasharray="' + len + ' ' + (C - len) +
+            '" stroke-dashoffset="' + (-at) + '" transform="rotate(-90 70 70)"/>';
+    at += len;
+  });
+  const pct = Math.round((known / total) * 100);
+  const wrap = el("div", "result-chart");
+  wrap.innerHTML =
+    '<svg class="donut" viewBox="0 0 140 140" width="160" height="160" role="img" aria-label="Արդյունք">' +
+    '<circle cx="70" cy="70" r="' + R + '" fill="none" stroke="var(--line)" stroke-width="20"/>' + arcs +
+    '<text class="donut-pct" x="70" y="66" text-anchor="middle">' + pct + '%</text>' +
+    '<text class="donut-sub" x="70" y="86" text-anchor="middle">' + known + " / " + total + "</text>" +
+    "</svg>";
+  const legend = el("ul", "chart-legend");
+  slices.filter((s) => s.n > 0).forEach((s) => {
+    const li = el("li", null, '<span class="dot" style="background:' + s.color + '"></span>' +
+      esc(s.label) + " · " + s.n);
+    legend.appendChild(li);
+  });
+  wrap.appendChild(legend);
+  return wrap;
+}
+
 /* ---- edit a set (rename + remove cards) ---- */
 let editState = { id: null, name: "", items: [] };
 function openEditSet(set) {
@@ -1451,6 +1526,8 @@ function openEditSet(set) {
   $("#set-edit").classList.remove("hidden");
   $("#edit-add").classList.add("hidden");
   $("#edit-add-grid").innerHTML = "";
+  addFree = [];
+  $("#add-tools").classList.add("hidden");
   addSel = new Set();
   $("#edit-add-words").checked = false;
   $("#edit-set-words").checked = false;
@@ -1484,6 +1561,8 @@ function closeEditUI() {
   $("#set-edit").classList.add("hidden");
   $("#edit-add").classList.add("hidden");
   $("#edit-add-grid").innerHTML = "";
+  addFree = [];
+  $("#add-tools").classList.add("hidden");
   $("#set-list").style.display = "";
   $("#new-set").style.display = "";
   renderSetList();
@@ -1496,6 +1575,7 @@ function updateAddConfirm() {
   const b = $("#edit-add-confirm");
   b.disabled = addSel.size === 0;
   b.textContent = addSel.size ? "Ավելացնել ընտրվածները (" + addSel.size + ")" : "Ավելացնել ընտրվածները";
+  updateAddAllBtn();
 }
 async function loadAddLevel(lvl, btn) {
   document.querySelectorAll(".add-lvl").forEach((b) => b.classList.toggle("active", b === btn));
@@ -1509,6 +1589,7 @@ async function loadAddLevel(lvl, btn) {
   chars.forEach((ch) => {
     const already = editState.items.some((it) => it.type === "kanji" && it.ja === ch);
     const t = el("div", "kg-tile" + (already ? " sel" : ""), '<span lang="ja">' + esc(ch) + "</span>");
+    t.dataset.ch = ch;
     if (already) { t.title = "Արդեն ավելացված է"; grid.appendChild(t); return; }
     t.addEventListener("click", () => {
       if (addSel.has(ch)) { addSel.delete(ch); t.classList.remove("sel"); }
@@ -1517,7 +1598,28 @@ async function loadAddLevel(lvl, btn) {
     });
     grid.appendChild(t);
   });
+  addFree = chars.filter((ch) => !editState.items.some((it) => it.type === "kanji" && it.ja === ch));
+  $("#add-tools").classList.toggle("hidden", addFree.length === 0);
+  updateAddAllBtn();
 }
+/* whole level in one tap here too (skips kanji the set already has) */
+let addFree = [];
+function updateAddAllBtn() {
+  const b = $("#add-all-lvl");
+  if (!b || !addFree.length) return;
+  const all = addFree.every((ch) => addSel.has(ch));
+  b.textContent = all ? "Հանել ամբողջ N" + addLevel + "-ը" : "Ընտրել ամբողջ N" + addLevel + "-ը (" + addFree.length + ")";
+  b.classList.toggle("btn-primary", !all);
+}
+$("#add-all-lvl").addEventListener("click", () => {
+  const all = addFree.every((ch) => addSel.has(ch));
+  addFree.forEach((ch) => (all ? addSel.delete(ch) : addSel.add(ch)));
+  document.querySelectorAll("#edit-add-grid .kg-tile").forEach((t) => {
+    if (addFree.includes(t.dataset.ch)) t.classList.toggle("sel", addSel.has(t.dataset.ch));
+  });
+  updateAddConfirm();
+  updateAddAllBtn();
+});
 $("#edit-add-btn").addEventListener("click", () => {
   $("#edit-add").classList.toggle("hidden");
 });
@@ -1551,6 +1653,8 @@ $("#edit-add-confirm").addEventListener("click", async () => {
   $("#edit-add-words").checked = false;
   $("#edit-add").classList.add("hidden");
   $("#edit-add-grid").innerHTML = "";
+  addFree = [];
+  $("#add-tools").classList.add("hidden");
   document.querySelectorAll(".add-lvl").forEach((x) => x.classList.remove("active"));
   updateAddConfirm();
   renderEditItems();

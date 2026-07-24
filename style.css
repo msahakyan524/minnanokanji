@@ -8,6 +8,7 @@
   --accent-soft: #fde4ee;
   --accent-ink: #8e153f;
   --good: #0f8a5f;
+  --bad: #c0392b;
   --shadow: 0 6px 24px rgba(194, 24, 91, 0.10);
   --radius: 16px;
 }
@@ -342,6 +343,21 @@ body.flash-mode #flash-view { display: block; }
 .nav-say.speaking { animation: say-pulse 0.9s ease infinite; }
 @keyframes say-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 @media (prefers-reduced-motion: reduce) { .nav-say.speaking { animation: none; } }
+
+/* Result ring on the finish screen */
+.result-chart { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 16px 0 24px; }
+.donut { animation: donut-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes donut-in { from { opacity: 0; transform: scale(0.85) rotate(-12deg); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .donut { animation: none; } }
+.donut-pct { font-size: 26px; font-weight: 700; fill: var(--ink); }
+.donut-sub { font-size: 14px; fill: var(--ink-soft); }
+.chart-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; }
+.chart-legend li { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-soft); }
+.chart-legend .dot { width: 12px; height: 12px; border-radius: 999px; display: inline-block; }
+
+/* "Whole level" helpers above a kanji grid */
+.grid-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.btn-sm { min-height: 44px; padding: 8px 14px; font-size: 14px; }
 
 .star-btn {
   display: inline-flex; align-items: center; justify-content: center;
