@@ -26,6 +26,7 @@
   let profile = null;   // row from `profiles`
   let pushTimer = null;
   let pulling = false;  // don't push while we are writing cloud data locally
+  let lastScore = null;
 
   const read = (k) => { try { return JSON.parse(localStorage.getItem(k) || "[]"); } catch (e) { return []; } };
   const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
@@ -52,12 +53,19 @@
 
   async function pushNow() {
     if (!me || pulling) return;
+    const sets = read(SETS_KEY);
     await sb.from("user_data").upsert({
       user_id: me.id,
-      sets: read(SETS_KEY),
+      sets,
       stars: read(STARS_KEY),
       updated_at: new Date().toISOString(),
     }, { onConflict: "user_id" });
+    // keep the public ranking score in step with what was just saved
+    const points = scoreOf(sets);
+    if (points !== lastScore) {
+      lastScore = points;
+      sb.from("profiles").update({ score: points }).eq("id", me.id).then(() => {}, () => {});
+    }
   }
 
   /* app.js calls this after every save; we wait a moment so a burst of
@@ -199,6 +207,10 @@
     const prog = el("div", "my-progress");
     out.appendChild(prog);
     fillProgress(prog, cards, known);
+
+    const rank = el("div", "rank-box");
+    out.appendChild(rank);
+    renderRanking(rank);
 
     const row = document.createElement("div");
     row.className = "btn-row auth-actions";
@@ -348,6 +360,42 @@
 
   function toastSafe(t) { if (typeof toast === "function") toast(t); }
 
+  /* ---------------- score + ranking ----------------
+     A harder word counts for more: each level up doubles the value.
+     N5 = 1, N4 = 2, N3 = 4, N2 = 8, N1 = 16 — so one N5 word is worth
+     half an N4 word, exactly as asked. Cards with no level count as 1. */
+  const LEVEL_POINTS = { 5: 1, 4: 2, 3: 4, 2: 8, 1: 16 };
+  function scoreOf(sets) {
+    let total = 0;
+    (sets || []).forEach((s) => (s.items || []).forEach((i) => {
+      if (i.known === true) total += LEVEL_POINTS[i.level] || 1;
+    }));
+    return total;
+  }
+
+  async function renderRanking(box) {
+    box.appendChild(el("h3", "admin-title", "Վարկանիշ"));
+    const { data, error } = await sb.from("leaderboard").select("*");
+    if (error) {
+      box.appendChild(msg("Վարկանիշը դեռ միացված չէ։"));
+      return;
+    }
+    const rows = (data || []).slice().sort((a, b) => (b.score || 0) - (a.score || 0));
+    const myName = (profile && profile.display_name) || "";
+    const list = el("div", "rank-list");
+    rows.forEach((r, i) => {
+      const row = el("div", "rank-row" + (r.display_name === myName ? " me" : ""));
+      row.appendChild(el("span", "rank-no", "#" + (i + 1)));
+      row.appendChild(avatarImg(r.avatar, "avatar-sm"));
+      row.appendChild(el("span", "rank-name", esc(r.display_name || "—")));
+      row.appendChild(el("span", "rank-score", Math.round(r.score || 0) + " միավոր"));
+      list.appendChild(row);
+    });
+    if (!rows.length) list.appendChild(msg("Դեռ ոչ ոք միավոր չունի։"));
+    box.appendChild(list);
+    box.appendChild(el("p", "rank-note", "N5 բառ՝ 1 միավոր · N4՝ 2 · N3՝ 4 · N2՝ 8 · N1՝ 16"));
+  }
+
   /* ---------------- my own progress ---------------- */
   async function fillProgress(box, cards, known) {
     box.appendChild(el("h3", "admin-title", "Իմ առաջընթացը"));
@@ -439,10 +487,12 @@
     await renderInvites(box);
     box.appendChild(el("h3", "admin-title", "Օգտատերեր (" + (pRes.data || []).length + ")"));
 
-    const people = (pRes.data || []).slice().sort((a, b) =>
-      String(b.last_seen || "").localeCompare(String(a.last_seen || "")));
+    const people = (pRes.data || []).slice().map((p) => {
+      const sets = (dataBy.get(p.id) && dataBy.get(p.id).sets) || [];
+      return Object.assign({}, p, { points: scoreOf(sets) });
+    }).sort((a, b) => b.points - a.points);   // best score first
 
-    people.forEach((p) => {
+    people.forEach((p, idx) => {
       const sets = (dataBy.get(p.id) && dataBy.get(p.id).sets) || [];
       const cards = sets.reduce((n, s) => n + ((s.items && s.items.length) || 0), 0);
       const known = sets.reduce((n, s) => n + ((s.items || []).filter((i) => i.known === true).length), 0);
@@ -452,6 +502,7 @@
 
       const row = el("div", "admin-row");
       const who = el("div", "admin-who");
+      who.appendChild(el("span", "rank-no", "#" + (idx + 1)));
       who.appendChild(avatarImg(p.avatar, "avatar-sm"));
       who.appendChild(el("div", null,
         '<div class="admin-name">' + esc(p.display_name || p.email) + (p.is_admin ? ' <span class="admin-badge">admin</span>' : "") +
@@ -463,6 +514,7 @@
       row.appendChild(bar);
 
       const nums = el("div", "admin-nums");
+      nums.appendChild(el("div", "admin-points", p.points + " միավոր"));
       nums.appendChild(el("div", null, known + " / " + cards + " քարտ · " + pct + "%"));
       nums.appendChild(el("div", null, sess.length + " պարապմունք" +
         (last ? " · վերջինը՝ " + last.known + "/" + last.total : "")));
@@ -566,6 +618,18 @@
     t.classList.toggle("signed-in", !!me);
     t.setAttribute("aria-label", me ? "Իմ հաշիվը՝ " + name : "Մուտք գործել");
     t.title = t.getAttribute("aria-label");
+    // show the person's own picture in the corner once they are logged in
+    const pic = t.querySelector(".avatar");
+    if (pic) pic.remove();
+    const svg = t.querySelector("svg");
+    if (me) {
+      if (svg) svg.style.display = "none";
+      t.appendChild(avatarImg(profile && profile.avatar, "avatar-tab"));
+      t.classList.add("has-pic");
+    } else {
+      if (svg) svg.style.display = "";
+      t.classList.remove("has-pic");
+    }
   }
 
   async function onAuthChange(session) {

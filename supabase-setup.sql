@@ -26,6 +26,18 @@ create table if not exists public.profiles (
 -- profile picture: either one emoji, or a small photo squeezed into text
 alter table public.profiles add column if not exists avatar text;
 
+-- ranking points (harder words are worth more; see cloud.js)
+alter table public.profiles add column if not exists score numeric not null default 0;
+
+-- Public scoreboard: shows ONLY name, picture and points — never emails.
+-- A view like this reads the table with the owner's rights, so the
+-- "own rows only" rule does not hide other people's scores here.
+create or replace view public.leaderboard as
+  select display_name, avatar, coalesce(score, 0) as score
+  from public.profiles;
+
+grant select on public.leaderboard to anon, authenticated;
+
 create table if not exists public.user_data (
   user_id    uuid primary key references auth.users on delete cascade,
   sets       jsonb not null default '[]'::jsonb,
