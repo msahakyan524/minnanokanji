@@ -228,3 +228,16 @@ where not exists (select 1 from public.profiles p where p.id = u.id);
 insert into public.user_data (user_id)
 select u.id from auth.users u
 where not exists (select 1 from public.user_data d where d.user_id = u.id);
+
+-- ---------- unstick any account that is waiting for an email ----------
+-- (accounts made from the dashboard without "Auto Confirm User" can't log in)
+update auth.users
+set email_confirmed_at = coalesce(email_confirmed_at, now())
+where email_confirmed_at is null;
+
+-- ---------- make sure SOMEBODY is the admin ----------
+-- if no admin exists, the oldest account becomes it
+update public.profiles
+set is_admin = true
+where id = (select id from public.profiles order by created_at limit 1)
+  and not exists (select 1 from public.profiles where is_admin);
