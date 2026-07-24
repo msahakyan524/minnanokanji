@@ -186,8 +186,9 @@
     const card = document.createElement("div");
     card.className = "me-card";
     card.appendChild(avatarButton());
-    card.appendChild(el("div", "me-name", esc((profile && profile.display_name) || me.email)));
+    card.appendChild(nameRow());
     card.appendChild(el("div", "me-mail", esc(me.email)));
+    card.appendChild(el("div", "me-private", "Փոստդ տեսնում ես միայն դու (և ադմինը)։"));
     out.appendChild(card);
     out.appendChild(statRow([
       ["Հավաքածուներ", sets.length],
@@ -210,6 +211,50 @@
     outBtn.addEventListener("click", async () => { await sb.auth.signOut(); });
     row.appendChild(outBtn);
     out.appendChild(row);
+  }
+
+  /* ---------------- name you can change ---------------- */
+  function nameRow() {
+    const wrap = el("div", "me-name-row");
+    const shown = (profile && profile.display_name) || (me.email || "").split("@")[0];
+    const name = el("span", "me-name", esc(shown));
+    const edit = btn("✎", "name-edit");
+    edit.title = "Փոխել անունը";
+    edit.setAttribute("aria-label", "Փոխել անունը");
+    wrap.appendChild(name);
+    wrap.appendChild(edit);
+
+    edit.addEventListener("click", () => {
+      const form = document.createElement("form");
+      form.className = "name-form";
+      const input = document.createElement("input");
+      input.className = "set-name";
+      input.type = "text";
+      input.value = shown;
+      input.maxLength = 30;
+      input.setAttribute("aria-label", "Անուն");
+      const save = btn("Պահպանել", "btn btn-sm btn-primary");
+      save.type = "submit";
+      form.appendChild(input);
+      form.appendChild(save);
+      wrap.replaceWith(form);
+      input.focus();
+      input.select();
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const value = input.value.trim().slice(0, 30);
+        if (!value) return;
+        save.disabled = true;
+        const { error } = await sb.from("profiles").update({ display_name: value }).eq("id", me.id);
+        if (error) { save.disabled = false; return toastSafe("Չհաջողվեց՝ " + error.message); }
+        profile = Object.assign({}, profile, { display_name: value });
+        setTabLabel();
+        renderPanel();
+        toastSafe("Անունը փոխվեց");
+      });
+    });
+    return wrap;
   }
 
   /* ---------------- profile picture ---------------- */
