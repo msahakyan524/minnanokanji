@@ -131,7 +131,7 @@
       '<label class="edit-label" for="auth-pass">Գաղտնաբառ</label>' +
       '<input class="set-name" id="auth-pass" type="password" autocomplete="current-password" required minlength="6" placeholder="Առնվազն 6 նշան">' +
       '<label class="edit-label" for="auth-code">Հրավերի կոդ (միայն գրանցվելիս)</label>' +
-      '<input class="set-name" id="auth-code" type="text" autocomplete="off" placeholder="Կոդը՝ Մարիայից">' +
+      '<input class="set-name" id="auth-code" type="text" autocomplete="off" placeholder="Կոդը՝ Միշկայից">' +
       '<div class="btn-row auth-actions">' +
       '<button type="submit" class="btn btn-primary" id="auth-login">Մուտք գործել</button>' +
       '<button type="button" class="btn" id="auth-signup">Գրանցվել</button>' +
@@ -221,7 +221,7 @@
     const okCode = await sb.rpc("check_invite", { code: invite_code });
     if (okCode.data === false) {
       return say(invite_code ? "Հրավերի կոդը սխալ է կամ սպառված։"
-                             : "Մուտքագրիր հրավերի կոդը՝ գրանցվելու համար։", true);
+                             : "Կոդ խնդրիր Միշկայից։", true);
     }
     const { data, error } = await sb.auth.signUp({
       email, password, options: { data: { display_name, invite_code } },
