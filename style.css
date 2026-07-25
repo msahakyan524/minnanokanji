@@ -437,6 +437,14 @@ body.flash-mode #flash-view { display: block; }
 .set-card .set-title { font-weight: 700; font-size: 16px; }
 .set-card .set-sub { color: var(--ink-soft); font-size: 14px; }
 .set-card.starred-set { background: var(--accent-soft); border-color: #f3c6da; }
+/* A set the quiz built from your mistakes: the flower sits in the top-right
+   corner, and the card gains a little headroom so it never sits on a button. */
+.set-card { position: relative; }
+.set-card.set-auto { padding-top: 32px; }
+.set-auto-mark { position: absolute; top: 8px; right: 12px; line-height: 1; }
+.set-auto-mark .set-flower { height: 20px; margin: 0; vertical-align: top; }
+.review-made { margin-top: 12px; }
+.review-made .set-flower { height: 1.2em; vertical-align: -0.25em; }
 .set-flower { height: 1.5em; width: auto; vertical-align: -0.4em; margin-right: 4px; }
 .set-card .set-title { display: flex; align-items: center; }
 

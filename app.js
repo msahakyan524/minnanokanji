@@ -1017,7 +1017,14 @@ function renderSetList() {
   box.appendChild(starCard);
 
   loadSets().forEach((set) => {
-    const card = el("div", "set-card" + (set.id === freshSetId ? " set-fresh" : ""));
+    const card = el("div", "set-card" + (set.id === freshSetId ? " set-fresh" : "") +
+                    (set.auto ? " set-auto" : ""));
+    // the flower in the corner marks a set the quiz built out of your mistakes
+    if (set.auto) {
+      const mark = el("span", "set-auto-mark", SAKURA_JI);
+      mark.title = "Քուիզի սխալներից ինքնաշեն հավաքածու";
+      card.appendChild(mark);
+    }
     const known = set.items.filter((i) => i.known === true).length;
     card.appendChild(el("div", "set-info",
       '<div class="set-title">' + esc(set.name) + "</div><div class=\"set-sub\">" +
@@ -1613,11 +1620,32 @@ function answer(btn, right, it) {
   }, right ? 650 : 1400);
 }
 
+/* ---- the set that builds itself out of your mistakes ----
+   A quiz you got everything right in leaves nothing behind. A quiz with
+   misses drops them into their own set, so the next thing you can do is study
+   exactly the cards that caught you out. One such set per quiz, rewritten each
+   time you play that quiz again — otherwise the list would fill up with a
+   dozen near-identical piles. */
+const REVIEW_TAG = " · սխալները";
+function buildReviewSet() {
+  if (!quiz.wrong.length) return null;                 // knew everything: nothing to make
+  const base = quiz.title.replace(/ · կրկնում$/, "");  // replays feed the same set
+  const name = base + REVIEW_TAG;
+  const items = quiz.wrong.map((x) => ({ ...x, known: null }));
+  const sets = loadSets();
+  const at = sets.findIndex((s) => s.auto && s.name === name);
+  const set = { id: at >= 0 ? sets[at].id : "r" + Date.now(), name, items, auto: true };
+  if (at >= 0) sets[at] = set; else sets.unshift(set);
+  saveSets(sets);
+  return set;
+}
+
 function finishQuiz() {
   document.querySelectorAll(".quiz-card, .quiz-options").forEach((n) => { n.style.display = "none"; });
   const done = $("#quiz-done");
   done.classList.remove("hidden");
   done.innerHTML = "";
+  const review = buildReviewSet();
   // logged like a study session, so it lands in the same history
   if (window.CLOUD) {
     window.CLOUD.logSession({
@@ -1634,6 +1662,10 @@ function finishQuiz() {
     again.addEventListener("click", () =>
       startQuiz(missed, quiz.title + " · կրկնում", set, true, from));
     done.appendChild(again);
+  }
+  if (review) {
+    done.appendChild(el("p", "notice review-made",
+      SAKURA_JI + " Սխալներդ պահեցի առանձին հավաքածուում՝ «" + esc(review.name) + "»։"));
   }
   const back = el("button", "btn", "Դեպի հավաքածուներ");
   back.type = "button";
