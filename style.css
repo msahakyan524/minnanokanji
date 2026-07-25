@@ -482,7 +482,8 @@ body.flash-mode #flash-view { display: block; }
 #edit-add-confirm { margin-top: 8px; }
 
 /* Study */
-.study-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.study-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.btn-back { font-weight: 700; }
 .study-progress { color: var(--ink-soft); font-weight: 700; }
 .flashcard {
   perspective: 1200px; margin: 0 auto 16px; max-width: 460px; height: 300px; cursor: pointer;

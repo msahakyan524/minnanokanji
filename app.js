@@ -1142,6 +1142,7 @@ window.addEventListener("popstate", (e) => {
 /* ---- open / close ---- */
 function showFlashUI() {
   document.body.classList.add("flash-mode");
+  studyFocus(false);
   $("#study").classList.add("hidden");
   $("#set-edit").classList.add("hidden");
   $("#edit-add").classList.add("hidden");
@@ -1448,15 +1449,28 @@ $("#create-set").addEventListener("click", async () => {
 
 /* ---- study mode (flip cards) ---- */
 let study = { items: [], idx: 0, set: null, title: "" };
+/* While studying, show ONLY the card. The list, the "new set" form and the
+   profile strip are put away so nothing has to be scrolled past. */
+function studyFocus(on) {
+  ["#set-list", "#new-set", "#me-strip", "#flash-view .flash-head"].forEach((sel) => {
+    const n = document.querySelector(sel);
+    if (n) n.style.display = on ? "none" : "";
+  });
+}
 function startStudy(items, title, setRef, noPush) {
   study = { items, idx: 0, set: setRef || null, title };
   $("#study-done").classList.add("hidden");
   $("#flashcard").classList.remove("hidden");
   document.querySelectorAll(".study-controls, .fc-nav, .study-tip").forEach((n) => { n.style.display = ""; });
   $("#study").classList.remove("hidden");
+  studyFocus(true);
   showCard();
   window.scrollTo(0, 0);
-  if (!noPush) pushView(() => { $("#study").classList.add("hidden"); renderSetList(); });
+  if (!noPush) pushView(() => {
+    $("#study").classList.add("hidden");
+    studyFocus(false);
+    renderSetList();
+  });
 }
 function showCard() {
   const fc = $("#flashcard");
