@@ -13,8 +13,16 @@
     { code: "ru", label: "Русский" },
     { code: "en", label: "English" },
   ];
-  let LANG = localStorage.getItem(STORE) || "hy";
+  /* The two sister sites share one web address, so they share one browser
+     storage. The language is therefore kept under a single shared label that
+     both of them read and write. Whichever site you open next opens in the
+     language you last picked — through the flower, a bookmark, or the Back
+     button, it makes no difference. STORE stays as a fallback for anyone who
+     chose a language before this was shared. */
+  const SHARED = "mn_lang";
+  let LANG = localStorage.getItem(SHARED) || localStorage.getItem(STORE) || "hy";
   if (!LANGS.some((l) => l.code === LANG)) LANG = "hy";
+  try { localStorage.setItem(SHARED, LANG); } catch (e) {}   // so the sister sees it too
   document.documentElement.lang = LANG;
 
   /* ---- whole, fixed phrases: Armenian -> { en, ru } ---- */
@@ -322,6 +330,7 @@
     }
     sel.addEventListener("change", () => {
       localStorage.setItem(STORE, sel.value);
+      localStorage.setItem(SHARED, sel.value);   // the sister site reads this one
       location.reload();               // reload = every screen comes back in the new language
     });
     const head = document.querySelector(".site-head") || document.body;
