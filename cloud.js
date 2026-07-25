@@ -28,6 +28,7 @@
   let pulling = false;  // don't push while we are writing cloud data locally
   let lastScore = null;
   let recovering = false;   // arrived here from a password-reset link
+  let shownFor = "\u0000";   // whose panel is on screen — stops needless redraws
 
   const read = (k) => { try { return JSON.parse(localStorage.getItem(k) || "[]"); } catch (e) { return []; } };
   const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
@@ -91,6 +92,7 @@
   function openPanel() {
     $("#account-modal").classList.remove("hidden");
     document.body.classList.add("modal-open");
+    shownFor = (me && me.id) || "";
     renderPanel();
   }
   function closePanel() {
@@ -345,6 +347,7 @@
         if (error) { save.disabled = false; return toastSafe("Չհաջողվեց՝ " + error.message); }
         profile = Object.assign({}, profile, { display_name: value });
         setTabLabel();
+        renderStrip();
         renderPanel();
         toastSafe("Անունը փոխվեց");
       });
@@ -437,7 +440,9 @@
     const { error } = await sb.from("profiles").update({ avatar: value }).eq("id", me.id);
     if (error) return toastSafe("Չհաջողվեց՝ " + error.message);
     profile = Object.assign({}, profile, { avatar: value });
-    renderPanel();
+    setTabLabel();      // corner button
+    renderStrip();      // strip above the sets
+    renderPanel();      // the panel itself
     toastSafe("Նկարը փոխվեց");
   }
 
@@ -767,14 +772,28 @@
   async function onAuthChange(session) {
     me = (session && session.user) || null;
     profile = null;
+    setTabLabel();          // clear the old face straight away
     if (me) {
       const { data } = await sb.from("profiles").select("*").eq("id", me.id).maybeSingle();
       profile = data || null;
+      // picture and name first — the sets can take a moment longer
+      setTabLabel();
+      renderStrip();
+      repaintPanel();
       await pullData();
       sb.from("profiles").update({ last_seen: new Date().toISOString() }).eq("id", me.id).then(() => {}, () => {});
     }
     setTabLabel();
     renderStrip();
+    repaintPanel();
+  }
+
+  /* Redraw the open panel ONLY when the logged-in person changed. Otherwise a
+     background check could rebuild the login form while someone is typing. */
+  function repaintPanel() {
+    const who = (me && me.id) || "";
+    if (who === shownFor) return;
+    shownFor = who;
     if (!$("#account-modal").classList.contains("hidden")) renderPanel();
   }
 
