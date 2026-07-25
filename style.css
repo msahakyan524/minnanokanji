@@ -467,6 +467,10 @@ body.flash-mode #flash-view { display: block; }
 .quiz-ja rt { font-size: 16px; font-weight: 400; color: var(--ink-soft); }
 .quiz-ja ruby { ruby-position: over; }
 .quiz-furi { justify-content: center; margin: 0 0 12px; }
+/* the back/forward arrows under the options */
+.quiz-nav { margin-top: 16px; }
+/* the card offering to pick an unfinished quiz back up */
+.set-card.quiz-resume { background: var(--accent-soft); border-color: #f3c6da; }
 .quiz-ask { margin: 8px 0 0; color: var(--ink-soft); font-size: 14px; }
 .quiz-options { display: grid; gap: 8px; margin-bottom: 16px; }
 .quiz-opt {

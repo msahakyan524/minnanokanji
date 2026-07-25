@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="favicon.svg?v=1">
 <link rel="preconnect" href="https://kanjiapi.dev">
 <link rel="preconnect" href="https://jotoba.de">
-<link rel="stylesheet" href="style.css?v=82">
+<link rel="stylesheet" href="style.css?v=83">
 </head>
 <body>
   <div class="sakura" aria-hidden="true">
@@ -132,6 +132,15 @@
         </div>
         <label class="chk quiz-furi"><input type="checkbox" id="quiz-furi" checked> Ֆուրիգանա</label>
         <div id="quiz-options" class="quiz-options"></div>
+        <!-- look back at the questions already answered, then forward again -->
+        <div class="fc-nav quiz-nav">
+          <button type="button" id="quiz-prev" class="nav-btn" aria-label="Նախորդ հարցը" title="Նախորդ հարցը">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M15 5 8 12l7 7"/></svg>
+          </button>
+          <button type="button" id="quiz-next" class="nav-btn" aria-label="Հաջորդ հարցը" title="Հաջորդ հարցը">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7"/></svg>
+          </button>
+        </div>
         <div id="quiz-done" class="hidden"></div>
       </div>
 
@@ -265,9 +274,9 @@
        Ձեռագիրը ճանաչում է Google-ը։ Ամբողջությամբ աշխատում է քո browser-ում։</p>
   </footer>
 
-  <script src="i18n.js?v=85" defer></script>
+  <script src="i18n.js?v=86" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.8/dist/umd/supabase.js" defer></script>
-  <script src="app.js?v=83" defer></script>
+  <script src="app.js?v=84" defer></script>
   <script src="avatars.js?v=1"></script>
   <script src="cloud.js?v=77" defer></script>
   <script src="site-switch.js?v=3"></script>

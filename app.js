@@ -996,6 +996,25 @@ function renderSetList() {
   box.innerHTML = "";
   if (window.CLOUD && window.CLOUD.renderStrip) window.CLOUD.renderStrip();
 
+  /* An unfinished quiz gets first place in the list, so a refresh never
+     feels like the round was thrown away. */
+  const pending = savedQuiz();
+  if (pending) {
+    const card = el("div", "set-card quiz-resume");
+    card.appendChild(el("div", "set-info",
+      '<div class="set-title">' + esc(pending.title) + "</div><div class=\"set-sub\">" +
+      "Անավարտ քուիզ · " + (pending.idx + 1) + " / " + pending.items.length + "</div>"));
+    const go = el("button", "btn btn-primary", "Շարունակել");
+    go.type = "button";
+    go.addEventListener("click", () => resumeQuiz());
+    const drop = el("button", "btn", "Չեղարկել");
+    drop.type = "button";
+    drop.addEventListener("click", () => { clearQuizState(); renderSetList(); });
+    card.appendChild(go);
+    card.appendChild(drop);
+    box.appendChild(card);
+  }
+
   const stars = loadStars();
   const starCard = el("div", "set-card starred-set");
   starCard.appendChild(el("div", "set-info",
@@ -1474,7 +1493,32 @@ function resultChart(known, unknown, skipped, labels) {
    four meanings below, one of them right. Wrong picks are kept so they can be
    replayed at the end. Nothing is written back to the set — a game is not a
    judgement about what you know. */
-let quiz = { items: [], idx: 0, score: 0, wrong: [], title: "", pool: [], set: null, locked: false };
+let quiz = { items: [], idx: 0, score: 0, wrong: [], title: "", pool: [],
+             set: null, locked: false, rounds: [], view: 0 };
+
+/* ---- an unfinished quiz survives a refresh ----
+   Kept in sessionStorage: it should outlive a reload but not a closed tab, the
+   same way the rest of the app treats "where was I". Everything the round
+   needs is in here, including the exact four options each question was shown
+   with, so coming back does not reshuffle the past. */
+const QUIZ_KEY = "mk_quiz";
+function saveQuizState() {
+  try {
+    if (!quiz.items.length) { sessionStorage.removeItem(QUIZ_KEY); return; }
+    sessionStorage.setItem(QUIZ_KEY, JSON.stringify({
+      items: quiz.items, idx: quiz.idx, score: quiz.score, wrong: quiz.wrong,
+      title: quiz.title, pool: quiz.pool, rounds: quiz.rounds,
+      setId: quiz.set ? quiz.set.id : null,
+    }));
+  } catch (e) {}
+}
+function clearQuizState() { try { sessionStorage.removeItem(QUIZ_KEY); } catch (e) {} }
+function savedQuiz() {
+  try {
+    const s = JSON.parse(sessionStorage.getItem(QUIZ_KEY) || "null");
+    return s && s.items && s.items.length ? s : null;
+  } catch (e) { return null; }
+}
 
 const shuffled = (arr) => {
   const a = arr.slice();
@@ -1547,9 +1591,10 @@ function startQuiz(items, title, setRef, noPush, decoyFrom) {
   const pool = quizPool(decoyFrom || items);
   if (!asked.length || pool.length < 2) { toast("Քուիզի համար պետք է առնվազն 2 իմաստով քարտ"); return; }
   quiz = { items: shuffled(asked), idx: 0, score: 0, wrong: [], title, pool,
-           set: setRef || null, locked: false };
+           set: setRef || null, locked: false, rounds: [], view: 0 };
   $("#quiz-done").classList.add("hidden");
-  document.querySelectorAll(".quiz-card, .quiz-options").forEach((n) => { n.style.display = ""; });
+  document.querySelectorAll(".quiz-card, .quiz-options, .quiz-nav, .quiz-furi")
+    .forEach((n) => { n.style.display = ""; });
   $("#study").classList.add("hidden");
   $("#quiz").classList.remove("hidden");
   studyFocus(true);
@@ -1562,35 +1607,116 @@ function startQuiz(items, title, setRef, noPush, decoyFrom) {
   });
 }
 
+/* Work out the four options for question i, once. They are then remembered,
+   so looking back at an earlier question shows exactly what you saw — not a
+   fresh shuffle. Options are kept apart by the text actually printed on them,
+   so two long meanings that shorten to the same words can never both appear. */
+function buildRound(i) {
+  const it = quiz.items[i];
+  const right = shortMeaning(it.meaning);
+  const seen = new Set([right]);
+  const decoys = [];
+  for (const d of shuffled(quiz.pool)) {
+    if (decoys.length === 3) break;
+    const text = shortMeaning(d.meaning);
+    if (seen.has(text)) continue;
+    seen.add(text);
+    decoys.push(text);
+  }
+  return { options: shuffled([right, ...decoys]), right, picked: null };
+}
+
+/* Pick an unfinished quiz back up exactly where it stopped. Called from the
+   "Continue" card that appears on the flashcards screen after a refresh. */
+function resumeQuiz() {
+  const s = savedQuiz();
+  if (!s) return false;
+  const set = s.setId ? (loadSets().find((x) => x.id === s.setId) || null) : null;
+  quiz = { items: s.items, idx: s.idx, score: s.score, wrong: s.wrong || [],
+           title: s.title, pool: s.pool || s.items, set,
+           rounds: s.rounds || [], view: s.idx, locked: false };
+  // if the refresh caught us mid-reveal, that question is done — move along
+  const here = quiz.rounds[quiz.idx];
+  if (here && here.picked !== null) {
+    if (quiz.idx < quiz.items.length - 1) quiz.idx++;
+    else { openQuizScreen(); finishQuiz(); return true; }
+  }
+  openQuizScreen();
+  showQuestion();
+  window.scrollTo(0, 0);
+  pushView(() => {
+    $("#quiz").classList.add("hidden");
+    studyFocus(false);
+    renderSetList();
+  });
+  return true;
+}
+
+/* the bits of showing the quiz screen that starting and resuming share */
+function openQuizScreen() {
+  $("#quiz-done").classList.add("hidden");
+  document.querySelectorAll(".quiz-card, .quiz-options, .quiz-nav, .quiz-furi")
+    .forEach((n) => { n.style.display = ""; });
+  $("#study").classList.add("hidden");
+  $("#quiz").classList.remove("hidden");
+  studyFocus(true);
+}
+
 function showQuestion() {
-  const it = quiz.items[quiz.idx];
+  quiz.view = quiz.idx;
+  if (!quiz.rounds[quiz.idx]) quiz.rounds[quiz.idx] = buildRound(quiz.idx);
   quiz.locked = false;
-  $("#quiz-progress").textContent = (quiz.idx + 1) + " / " + quiz.items.length + " · " + quiz.title;
+  paintRound();
+  saveQuizState();
+}
+
+/* Draw whichever question quiz.view points at. Anything already answered is
+   read-only, with your pick and the right answer still coloured in. */
+function paintRound() {
+  const i = quiz.view;
+  const it = quiz.items[i];
+  const round = quiz.rounds[i];
+  if (!it || !round) return;
+  const answered = round.picked !== null;
+  $("#quiz-progress").textContent = (i + 1) + " / " + quiz.items.length + " · " + quiz.title;
   paintQuizWord(it);
 
-  // three decoys from the same set, never repeating the right answer's text
-  const decoys = shuffled(quiz.pool.filter((x) => x.meaning !== it.meaning));
-  const seen = new Set([it.meaning]);
-  const picked = [];
-  for (const d of decoys) {
-    if (picked.length === 3) break;
-    if (seen.has(d.meaning)) continue;
-    seen.add(d.meaning);
-    picked.push(d);
-  }
   const box = $("#quiz-options");
   box.innerHTML = "";
-  shuffled([it, ...picked]).forEach((opt) => {
-    const b = el("button", "quiz-opt", esc(shortMeaning(opt.meaning)));
+  round.options.forEach((text) => {
+    const b = el("button", "quiz-opt", esc(text));
     b.type = "button";
-    b.addEventListener("click", () => answer(b, opt.meaning === it.meaning, it));
+    if (answered) {
+      b.disabled = true;
+      if (text === round.right) b.classList.add("is-right");
+      else if (text === round.picked) b.classList.add("is-wrong");
+    } else if (i !== quiz.idx) {
+      b.disabled = true;                       // a question you have not reached
+    } else {
+      b.addEventListener("click", () => answer(b, text, it));
+    }
     box.appendChild(b);
   });
+  paintQuizNav();
   // gentle entrance so each question feels like a new one
   const card = document.querySelector(".quiz-card");
   card.classList.remove("fc-enter");
   void card.offsetWidth;
   card.classList.add("fc-enter");
+}
+
+/* ‹ goes back through what you have already answered, › returns towards the
+   question you are actually on. You can never step past it. */
+function paintQuizNav() {
+  const prev = $("#quiz-prev"), next = $("#quiz-next");
+  if (prev) prev.disabled = quiz.view <= 0;
+  if (next) next.disabled = quiz.view >= quiz.idx;
+}
+function stepQuiz(by) {
+  const to = quiz.view + by;
+  if (to < 0 || to > quiz.idx) return;
+  quiz.view = to;
+  paintRound();
 }
 /* meanings arrive as long comma lists; two are enough to choose between */
 function shortMeaning(m) {
@@ -1611,9 +1737,14 @@ function saveQuizMark(it, known) {
   }));
 }
 
-function answer(btn, right, it) {
+function answer(btn, text, it) {
   if (quiz.locked) return;
+  const round = quiz.rounds[quiz.idx];
+  if (!round || round.picked !== null) return;      // already answered
   quiz.locked = true;
+  round.picked = text;
+  const right = text === round.right;
+
   const opts = [...document.querySelectorAll(".quiz-opt")];
   opts.forEach((b) => { b.disabled = true; });
   saveQuizMark(it, right);
@@ -1624,10 +1755,10 @@ function answer(btn, right, it) {
     quiz.wrong.push(it);
     btn.classList.add("is-wrong");
     // show which one it should have been, so the round still teaches something
-    const want = shortMeaning(it.meaning);
-    const good = opts.find((b) => b.textContent === want);
+    const good = opts.find((b) => b.textContent === round.right);
     if (good) good.classList.add("is-right");
   }
+  saveQuizState();
   setTimeout(() => {
     if (quiz.idx < quiz.items.length - 1) { quiz.idx++; showQuestion(); }
     else finishQuiz();
@@ -1655,7 +1786,9 @@ function buildReviewSet() {
 }
 
 function finishQuiz() {
-  document.querySelectorAll(".quiz-card, .quiz-options").forEach((n) => { n.style.display = "none"; });
+  clearQuizState();                       // finished: nothing left to continue
+  document.querySelectorAll(".quiz-card, .quiz-options, .quiz-nav, .quiz-furi")
+    .forEach((n) => { n.style.display = "none"; });
   const done = $("#quiz-done");
   done.classList.remove("hidden");
   done.innerHTML = "";
@@ -1687,6 +1820,8 @@ function finishQuiz() {
   done.appendChild(back);
 }
 $("#quiz-back").addEventListener("click", goBack);
+$("#quiz-prev").addEventListener("click", () => stepQuiz(-1));
+$("#quiz-next").addEventListener("click", () => stepQuiz(1));
 
 /* Flipping furigana mid-question only repaints the word, so an answer you
    already tapped keeps its green/red instead of being wiped. */
