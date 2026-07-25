@@ -1007,11 +1007,11 @@ function renderSetList() {
     startStudy(stars.map((x) => ({ ...x, known: null })), "Հատուկ բառեր", null);
   });
   starCard.appendChild(sStudy);
-  const sQuiz = el("button", "btn", "Խաղալ");
+  const sQuiz = el("button", "btn", "Քուիզ");
   sQuiz.type = "button";
   sQuiz.addEventListener("click", () => {
     if (!stars.length) { toast("Հատուկ բառերը դատարկ են"); return; }
-    startQuiz(stars, "Հատուկ բառեր");
+    startQuiz(stars, "Հատուկ բառեր", null);
   });
   starCard.appendChild(sQuiz);
   box.appendChild(starCard);
@@ -1025,9 +1025,9 @@ function renderSetList() {
     const study = el("button", "btn btn-primary", "Սովորել");
     study.type = "button";
     study.addEventListener("click", () => startStudy(set.items, set.name, set));
-    const play = el("button", "btn", "Խաղալ");
+    const play = el("button", "btn", "Քուիզ");
     play.type = "button";
-    play.addEventListener("click", () => startQuiz(set.items, set.name));
+    play.addEventListener("click", () => startQuiz(set.items, set.name, set));
     const edit = el("button", "btn", "Խմբագրել");
     edit.type = "button";
     edit.addEventListener("click", () => openEditSet(set));
@@ -1467,7 +1467,7 @@ function resultChart(known, unknown, skipped, labels) {
    four meanings below, one of them right. Wrong picks are kept so they can be
    replayed at the end. Nothing is written back to the set — a game is not a
    judgement about what you know. */
-let quiz = { items: [], idx: 0, score: 0, wrong: [], title: "", pool: [], locked: false };
+let quiz = { items: [], idx: 0, score: 0, wrong: [], title: "", pool: [], set: null, locked: false };
 
 const shuffled = (arr) => {
   const a = arr.slice();
@@ -1521,11 +1521,12 @@ function paintQuizWord(it) {
 
 /* decoyFrom: where the wrong options come from. On a replay round only a few
    cards are left, so the decoys keep coming from the whole original set. */
-function startQuiz(items, title, noPush, decoyFrom) {
+function startQuiz(items, title, setRef, noPush, decoyFrom) {
   const asked = quizPool(items);
   const pool = quizPool(decoyFrom || items);
-  if (!asked.length || pool.length < 2) { toast("Խաղալու համար պետք է առնվազն 2 իմաստով քարտ"); return; }
-  quiz = { items: shuffled(asked), idx: 0, score: 0, wrong: [], title, pool, locked: false };
+  if (!asked.length || pool.length < 2) { toast("Քուիզի համար պետք է առնվազն 2 իմաստով քարտ"); return; }
+  quiz = { items: shuffled(asked), idx: 0, score: 0, wrong: [], title, pool,
+           set: setRef || null, locked: false };
   $("#quiz-done").classList.add("hidden");
   document.querySelectorAll(".quiz-card, .quiz-options").forEach((n) => { n.style.display = ""; });
   $("#study").classList.add("hidden");
@@ -1575,11 +1576,26 @@ function shortMeaning(m) {
   return (m || "").split(",").slice(0, 2).join(",").trim();
 }
 
+/* A quiz answer counts exactly like tapping Գիտեմ / Չգիտեմ while studying:
+   the card is marked in the saved set, and the ranking score is worked out
+   from those marks (N5 = 1 point … N1 = 16). Starred words aren't a set of
+   their own, so those rounds stay just for fun. */
+function saveQuizMark(it, known) {
+  it.known = known;
+  if (!quiz.set) return;
+  saveSets(loadSets().map((s) => {
+    if (s.id !== quiz.set.id) return s;
+    return { ...s, items: (s.items || []).map(
+      (x) => (x.type === it.type && x.ja === it.ja ? { ...x, known } : x)) };
+  }));
+}
+
 function answer(btn, right, it) {
   if (quiz.locked) return;
   quiz.locked = true;
   const opts = [...document.querySelectorAll(".quiz-opt")];
   opts.forEach((b) => { b.disabled = true; });
+  saveQuizMark(it, right);
   if (right) {
     quiz.score++;
     btn.classList.add("is-right");
@@ -1602,13 +1618,21 @@ function finishQuiz() {
   const done = $("#quiz-done");
   done.classList.remove("hidden");
   done.innerHTML = "";
+  // logged like a study session, so it lands in the same history
+  if (window.CLOUD) {
+    window.CLOUD.logSession({
+      set_name: quiz.title, total: quiz.items.length,
+      known: quiz.score, unknown: quiz.wrong.length, skipped: 0,
+    });
+  }
   done.appendChild(el("p", "fc-reading", "Վերջ " + SAKURA_PLAIN));
   done.appendChild(resultChart(quiz.score, quiz.wrong.length, 0, ["Ճիշտ", "Սխալ", ""]));
   if (quiz.wrong.length) {
     const again = el("button", "btn btn-primary", "Կրկնել սխալները (" + quiz.wrong.length + ")");
     again.type = "button";
-    const missed = quiz.wrong.slice(), from = quiz.pool;
-    again.addEventListener("click", () => startQuiz(missed, quiz.title + " · կրկնում", true, from));
+    const missed = quiz.wrong.slice(), from = quiz.pool, set = quiz.set;
+    again.addEventListener("click", () =>
+      startQuiz(missed, quiz.title + " · կրկնում", set, true, from));
     done.appendChild(again);
   }
   const back = el("button", "btn", "Դեպի հավաքածուներ");
