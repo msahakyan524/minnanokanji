@@ -214,13 +214,22 @@
       return say("Ընտրիր ավելի քաղաքավարի անուն կամ փոստ։", true);
     }
     say("Գրանցում…");
-    // the real check is in the database; this one just gives a clear message
+    // the real check is in the database; this one just gives a clear message.
+    // check_invite says "fine" for the very first account, which needs no code.
     const okCode = await sb.rpc("check_invite", { code: invite_code });
-    if (okCode.data === false) return say("Հրավերի կոդը սխալ է կամ սպառված։", true);
+    if (okCode.data === false) {
+      return say(invite_code ? "Հրավերի կոդը սխալ է կամ սպառված։"
+                             : "Մուտքագրիր հրավերի կոդը՝ գրանցվելու համար։", true);
+    }
     const { data, error } = await sb.auth.signUp({
       email, password, options: { data: { display_name, invite_code } },
     });
     if (error) return say(friendly(error.message), true);
+    // Supabase hides "this email exists" to stop strangers probing for
+    // addresses: it answers with a user that has no identities. Say it plainly.
+    if (data && data.user && (data.user.identities || []).length === 0) {
+      return say("Այս փոստն արդեն գրանցված է — մուտք գործիր։", true);
+    }
     if (data && data.user && !data.session) say("Ստուգիր փոստդ՝ հաստատելու համար։");
   }
 
