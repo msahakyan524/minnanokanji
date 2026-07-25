@@ -934,7 +934,7 @@ body.flash-mode #flash-view { display: block; }
    the vocabulary site's is small in its bottom-right corner. Tapping the
    small one trades their places, then the browser leaves — so the swap
    finishes as an arrival on the other site. */
-.sites { position: absolute; top: 16px; right: 68px; width: 44px; height: 44px; }
+.sites { position: absolute; top: 16px; left: 16px; width: 44px; height: 44px; }
 .sites__flower { display: block; width: 100%; height: 100%; }
 .sites__here {
   position: absolute; inset: 0;
@@ -961,3 +961,12 @@ body.flash-mode #flash-view { display: block; }
   .sites__here, .sites__there { transition: none }
   .sites.is-arriving .sites__here { animation: none }
 }
+
+/* ===== イロバコ down the right edge ===== */
+/* The name both sister sites share, set vertically the way a shop sign hangs
+   beside a doorway. It sits in the empty gutter next to the 720px content
+   column, and hides below 880px where that gutter runs out. */
+.edgemark { position: fixed; right: 20px; top: 50%; transform: translateY(-50%);
+  z-index: 5; pointer-events: none; color: var(--ink); opacity: .85; }
+.edgemark svg { display: block; height: 150px; width: auto; }
+@media (max-width: 880px) { .edgemark { display: none } }
