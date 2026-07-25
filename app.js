@@ -1201,6 +1201,54 @@ function renderSetList() {
   });
 }
 
+/* ---- "please wait" window with a rotating fun fact ----
+   Building a big set takes a few seconds, so give people something to read. */
+const FUN_FACTS = [
+  "«Կատվի թաթն էլ կուզեի փոխ վերցնել» — ասում են, երբ շատ զբաղված են։",
+  "Ճապոներենում հոգնակի թիվ չկա՝ 猫 նշանակում է և՛ կատու, և՛ կատուներ։",
+  "«Կարաոկե» բառացի նշանակում է «դատարկ նվագախումբ»։",
+  "Emoji-ն 絵文字 է՝ «նկար-տառ», ոչ թե «էմոցիա»։",
+  "4 թիվը հնչում է ինչպես «մահ», դրա համար հիվանդանոցները բաց են թողնում այն։",
+  "木漏れ日 — տերևների արանքից ծորացող արևի լույս։ Մեկ բառով։",
+  "«Արիգատո»-ն սկզբում նշանակել է «հազվադեպ գոյություն ունեցող»։",
+  "Մեկ ճապոնական նախադասությունը կարող է օգտագործել երեք այբուբեն միանգամից։",
+  "「かわいい」 սկզբնապես նշանակել է «խղճալի», ոչ թե «սիրուն»։",
+  "Չափահաս ճապոնացիները վեճերը երբեմն լուծում են քար-թուղթ-մկրատով։",
+  "布団が吹っ飛んだ — «ներքնակը թռավ»։ Ամենահայտնի ճապոնական բառախաղը։",
+  "一石二鳥 — «մեկ քարով երկու թռչուն», ճիշտ ինչպես մեզ մոտ։",
+];
+let factTimer = null;
+function showWait(total) {
+  const box = $("#wait-modal");
+  if (!box) return;
+  box.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  updateWait(0, total);
+  nextFact();
+  clearInterval(factTimer);
+  factTimer = setInterval(nextFact, 5000);
+}
+function nextFact() {
+  const f = $("#wait-fact");
+  if (!f) return;
+  f.style.animation = "none";
+  void f.offsetWidth;                       // restart the fade each time
+  f.style.animation = "";
+  f.textContent = FUN_FACTS[Math.floor(Math.random() * FUN_FACTS.length)];
+}
+function updateWait(done, total) {
+  const fill = $("#wait-fill");
+  const count = $("#wait-count");
+  if (fill) fill.style.width = (total ? Math.round((done / total) * 100) : 0) + "%";
+  if (count) count.textContent = done + " / " + total;
+}
+function hideWait() {
+  clearInterval(factTimer);
+  const box = $("#wait-modal");
+  if (box) box.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+}
+
 /* Do the same job for many kanji at once, a few at a time.
    Sequential lookups made an 80-kanji set take ~20s; 8 at a time is much
    faster while still being polite to the free dictionary API. */
@@ -1343,6 +1391,7 @@ $("#create-set").addEventListener("click", async () => {
   const btn = $("#create-set");
   btn.disabled = true;
   btn.textContent = "Ստեղծում…";
+  showWait(chosen.length);
   // words may only use kanji up to the HARDEST level among the chosen kanji
   // (N3=3 is hardest, N5=5 easiest), plus everything easier.
   let allowed = null;
@@ -1359,7 +1408,7 @@ $("#create-set").addEventListener("click", async () => {
     ch,
     info: await getKanji(ch),
     words: addWords ? await getExamples(ch, allowed) : [],
-  }), (d, t) => { btn.textContent = "Ստեղծում… " + d + " / " + t; });
+  }), (d, t) => { btn.textContent = "Ստեղծում… " + d + " / " + t; updateWait(d, t); });
   const items = [];
   rows.forEach((row) => {
     if (!row) return;
@@ -1383,6 +1432,7 @@ $("#create-set").addEventListener("click", async () => {
   document.querySelectorAll(".lvl-btn").forEach((b) => b.classList.remove("active"));
   btn.textContent = "Ստեղծել հավաքածու";
   btn.disabled = true;
+  hideWait();
   renderSetList();
   toast("Հավաքածուն ստեղծվեց՝ " + name);
 });
@@ -1663,13 +1713,14 @@ $("#edit-add-confirm").addEventListener("click", async () => {
   const b = $("#edit-add-confirm");
   b.disabled = true;
   b.textContent = "Ավելացնում…";
+  showWait(chosen.length);
   const addWords = $("#edit-add-words").checked;
   const allowed = addWords ? await allowedKanjiForLevel(addLevel || "5") : null;
   const rows = await mapLimit(chosen, 8, async (ch) => ({
     ch,
     info: await getKanji(ch),
     words: addWords ? await getExamples(ch, allowed) : [],
-  }), (d, t) => { b.textContent = "Ավելացնում… " + d + " / " + t; });
+  }), (d, t) => { b.textContent = "Ավելացնում… " + d + " / " + t; updateWait(d, t); });
   rows.forEach((row) => {
     if (!row) return;
     if (row.info && !editState.items.some((it) => it.type === "kanji" && it.ja === row.ch)) {
@@ -1690,6 +1741,7 @@ $("#edit-add-confirm").addEventListener("click", async () => {
   $("#add-tools").classList.add("hidden");
   document.querySelectorAll(".add-lvl").forEach((x) => x.classList.remove("active"));
   updateAddConfirm();
+  hideWait();
   renderEditItems();
   toast("Ավելացվեց " + chosen.length + " կանջի");
 });

@@ -209,6 +209,9 @@
     const display_name = $("#auth-name").value.trim();
     const invite_code = $("#auth-code").value.trim();
     if (!email || password.length < 6) return say("Պետք է էլ. փոստ և առնվազն 6 նշան գաղտնաբառ։", true);
+    if (isRude(display_name) || isRude(email.split("@")[0])) {
+      return say("Ընտրիր ավելի քաղաքավարի անուն կամ փոստ։", true);
+    }
     say("Գրանցում…");
     // the real check is in the database; this one just gives a clear message
     const okCode = await sb.rpc("check_invite", { code: invite_code });
@@ -225,7 +228,9 @@
     if (s.includes("invalid login")) return "Սխալ փոստ կամ գաղտնաբառ։";
     if (s.includes("already registered")) return "Այս փոստն արդեն գրանցված է — մուտք գործիր։";
     if (s.includes("password")) return "Գաղտնաբառը շատ կարճ է (նվազագույնը՝ 6)։";
-    if (s.includes("invite") || s.includes("saving new user")) return "Հրավերի կոդը սխալ է կամ սպառված։";
+    if (s.includes("polite")) return "Ընտրիր ավելի քաղաքավարի անուն կամ փոստ։";
+    if (s.includes("invite")) return "Հրավերի կոդը սխալ է կամ սպառված։";
+    if (s.includes("saving new user")) return "Չընդունվեց՝ ստուգիր հրավերի կոդը և անունը։";
     if (s.includes("not confirmed")) return "Փոստը հաստատված չէ — բացիր Supabase → Authentication → Users և հաստատիր։";
     if (s.includes("rate limit")) return "Չափից շատ փորձեր — սպասիր մի քիչ։";
     return "Չհաջողվեց՝ " + m;
@@ -270,6 +275,28 @@
     out.appendChild(row);
   }
 
+  /* ---------------- keep names decent ----------------
+     This is the quick check that gives an instant message. The real block
+     lives in the database, so editing the page does not get around it. */
+  const RUDE = [
+    "fuck", "shit", "bitch", "cunt", "whore", "slut", "rape", "nigg", "fag",
+    "dick", "cock", "pussy", "penis", "vagina", "wank", "bastard", "asshole",
+    "nazi", "hitler", "kys", "retard", "kike", "spic", "chink", "tranny",
+    "блядь", "бляд", "сука", "хуй", "пизд", "ебат", "ебан", "мраз", "гандон",
+    "քաքի", "կուս", "կուն", "մերդ", "քունեմ", "տականք",
+  ];
+  /* letters people swap in to sneak past a filter: 4→a, 1→i, 0→o … */
+  function flatten(text) {
+    return String(text || "").toLowerCase()
+      .replace(/[4@]/g, "a").replace(/[1!|]/g, "i").replace(/0/g, "o")
+      .replace(/3/g, "e").replace(/\$/g, "s").replace(/5/g, "s")
+      .replace(/[^a-zа-яա-ֆ]/gi, "");
+  }
+  function isRude(text) {
+    const flat = flatten(text);
+    return RUDE.some((w) => flat.includes(flatten(w)));
+  }
+
   /* ---------------- name you can change ---------------- */
   function nameRow() {
     const wrap = el("div", "me-name-row");
@@ -302,6 +329,7 @@
         e.preventDefault();
         const value = input.value.trim().slice(0, 30);
         if (!value) return;
+        if (isRude(value)) return toastSafe("Ընտրիր ավելի քաղաքավարի անուն։");
         save.disabled = true;
         const { error } = await sb.from("profiles").update({ display_name: value }).eq("id", me.id);
         if (error) { save.disabled = false; return toastSafe("Չհաջողվեց՝ " + error.message); }

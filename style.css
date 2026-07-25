@@ -238,6 +238,17 @@ body.modal-open { overflow: hidden; }
   padding: 16px;
   animation: fc-in 0.24s ease both;
 }
+/* "please wait" window */
+.wait-card { text-align: center; max-width: 400px; }
+.wait-flower { font-size: 40px; animation: wait-spin 3s ease-in-out infinite; }
+@keyframes wait-spin { 0%, 100% { transform: rotate(-8deg) scale(1); } 50% { transform: rotate(8deg) scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .wait-flower { animation: none; } }
+.wait-title { font-size: 16px; margin: 8px 0 16px; }
+.wait-bar { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; margin-bottom: 8px; }
+.wait-bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.3s ease; }
+.wait-fact-label { font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; margin: 16px 0 4px; }
+.wait-fact { font-size: 16px; line-height: 1.5; margin: 0; min-height: 3em; animation: fade 0.5s ease both; }
+
 .auth-form { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
 .auth-actions { margin: 12px 0 4px; }
 .auth-msg { text-align: center; }

@@ -86,6 +86,40 @@ as $$
   select coalesce((select is_admin from public.profiles where id = auth.uid()), false);
 $$;
 
+-- ---------- rude words are refused, in the database itself ----------
+-- Editing the web page cannot get around this: signups and renames both
+-- pass through here. Add or remove words in this table any time.
+create table if not exists public.banned_words (word text primary key);
+
+insert into public.banned_words (word) values
+  ('fuck'),('shit'),('bitch'),('cunt'),('whore'),('slut'),('rape'),('nigg'),
+  ('fag'),('dick'),('cock'),('pussy'),('penis'),('vagina'),('wank'),('bastard'),
+  ('asshole'),('nazi'),('hitler'),('kys'),('retard'),('kike'),('spic'),('chink'),
+  ('tranny'),('блядь'),('бляд'),('сука'),('хуй'),('пизд'),('ебат'),('ебан'),
+  ('мраз'),('гандон'),('քաքի'),('կուս'),('կուն'),('մերդ'),('քունեմ'),('տականք')
+on conflict (word) do nothing;
+
+alter table public.banned_words enable row level security;
+drop policy if exists banned_admin on public.banned_words;
+create policy banned_admin on public.banned_words for all using (public.is_admin());
+
+-- squashes the tricks people use: 4→a, 1→i, 0→o, and drops spaces/dots
+create or replace function public.flatten_text(txt text)
+returns text language sql immutable as $$
+  select regexp_replace(
+           translate(lower(coalesce(txt, '')), '4@1!|03$5', 'aaiiioess'),
+           '[^a-zа-яա-ֆ]', '', 'g');
+$$;
+
+create or replace function public.is_clean(txt text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select not exists (
+    select 1 from public.banned_words b
+    where public.flatten_text(txt) like '%' || public.flatten_text(b.word) || '%'
+  );
+$$;
+
+
 -- ---------- new signup -> make a profile (first one becomes admin) ----------
 create or replace function public.handle_new_user()
 returns trigger
@@ -99,6 +133,12 @@ declare
   inv          public.invites%rowtype;
 begin
   select exists (select 1 from public.profiles where is_admin) into admin_exists;
+
+  -- no rude names or addresses
+  if not public.is_clean(new.raw_user_meta_data ->> 'display_name')
+     or not public.is_clean(split_part(new.email, '@', 1)) then
+    raise exception 'please choose a polite name';
+  end if;
 
   -- everyone after the admin needs a valid invite code
   if admin_exists then
@@ -145,6 +185,12 @@ security definer
 set search_path = public
 as $$
 begin
+  -- renaming yourself to something rude is refused too
+  if new.display_name is distinct from old.display_name
+     and not public.is_clean(new.display_name) then
+    raise exception 'please choose a polite name';
+  end if;
+
   -- auth.uid() is null when YOU run SQL in the Supabase dashboard, so the
   -- owner can always fix things by hand; website visitors are still blocked.
   if auth.uid() is not null
