@@ -544,7 +544,7 @@ body.flash-mode #flash-view { display: block; }
 @media (prefers-reduced-motion: reduce) {
   .flashcard.fc-enter, .quiz-card.fc-enter { animation: none; }
 }
-.study-tip { text-align: center; color: var(--ink-soft); font-size: 12px; margin: 0 0 16px; }
+.study-tip { text-align: center; color: var(--ink-soft); font-size: 14px; margin: 0 0 16px; }
 .fc-inner {
   position: relative; width: 100%; height: 100%;
   transition: transform 0.5s; transform-style: preserve-3d;
@@ -658,7 +658,6 @@ body.flash-mode #flash-view { display: block; }
 .btn-primary:hover { background: #4338ca; }
 
 /* Type row */
-.type-row { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--line); }
 .type-label { display: block; color: var(--ink-soft); margin-bottom: 8px; }
 .type-fields { display: flex; gap: 8px; flex-wrap: wrap; }
 .type-fields input {
@@ -918,7 +917,6 @@ body.flash-mode #flash-view { display: block; }
   .study-progress { font-size: 14px; text-align: right; }
 }
 
-.build-tag { margin-top: 8px; font-weight: 700; color: var(--accent); }
 
 /* ===== Sister-site switch: two flowers, one behind the other ===== */
 /* Sits just left of the account button. This site's flower is full size;
