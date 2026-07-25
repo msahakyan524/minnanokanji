@@ -27,6 +27,7 @@
   let pushTimer = null;
   let pulling = false;  // don't push while we are writing cloud data locally
   let lastScore = null;
+  let recovering = false;   // arrived here from a password-reset link
 
   const read = (k) => { try { return JSON.parse(localStorage.getItem(k) || "[]"); } catch (e) { return []; } };
   const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
@@ -104,7 +105,8 @@
       out.appendChild(msg("Հաշիվները հասանելի չեն այս պահին։"));
       return;
     }
-    if (me) renderLoggedIn(out);
+    if (recovering) renderNewPassword(out);
+    else if (me) renderLoggedIn(out);
     else renderLoggedOut(out);
   }
 
@@ -130,7 +132,8 @@
       '<div class="btn-row auth-actions">' +
       '<button type="submit" class="btn btn-primary" id="auth-login">Մուտք գործել</button>' +
       '<button type="button" class="btn" id="auth-signup">Գրանցվել</button>' +
-      "</div>";
+      "</div>" +
+      '<button type="button" class="link-btn" id="auth-forgot">Մոռացե՞լ ես գաղտնաբառը</button>';
     out.appendChild(form);
     const note = msg("Առանց հաշվի էլ կարող ես սովորել — պարզապես արդյունքները կմնան միայն այս սարքում։");
     out.appendChild(note);
@@ -146,7 +149,49 @@
 
     form.addEventListener("submit", (e) => { e.preventDefault(); doLogin(say); });
     form.querySelector("#auth-signup").addEventListener("click", () => doSignup(say));
+    form.querySelector("#auth-forgot").addEventListener("click", () => doForgot(say));
     void nameRow;
+  }
+
+  /* send a "set a new password" link to the address in the email box */
+  async function doForgot(say) {
+    const email = $("#auth-email").value.trim();
+    if (!email) return say("Նախ գրիր էլ. փոստդ։", true);
+    say("Ուղարկում…");
+    const back = location.origin + location.pathname;
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: back });
+    if (error) return say(friendly(error.message), true);
+    say("Ուղարկեցինք հղում՝ ստուգիր փոստդ։");
+  }
+
+  /* the link brings the person back here — let them type a new password */
+  function renderNewPassword(out) {
+    out.innerHTML = "";
+    const form = document.createElement("form");
+    form.className = "auth-form";
+    form.innerHTML =
+      '<label class="edit-label" for="new-pass">Նոր գաղտնաբառ</label>' +
+      '<input class="set-name" id="new-pass" type="password" autocomplete="new-password" required minlength="6" placeholder="Առնվազն 6 նշան">' +
+      '<div class="btn-row auth-actions"><button type="submit" class="btn btn-primary">Պահպանել</button></div>';
+    out.appendChild(form);
+    const say = (t, bad) => {
+      const old = out.querySelector(".auth-msg");
+      if (old) old.remove();
+      const p = msg(t, "auth-msg" + (bad ? " bad" : ""));
+      p.classList.add("auth-msg");
+      out.appendChild(p);
+    };
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const password = form.querySelector("#new-pass").value;
+      if (password.length < 6) return say("Առնվազն 6 նշան։", true);
+      const { error } = await sb.auth.updateUser({ password });
+      if (error) return say(friendly(error.message), true);
+      recovering = false;
+      try { history.replaceState(null, "", location.pathname); } catch (er) {}
+      toastSafe("Գաղտնաբառը փոխվեց");
+      renderPanel();
+    });
   }
 
   async function doLogin(say) {
@@ -647,7 +692,15 @@
 
   if (sb) {
     sb.auth.getSession().then(({ data }) => onAuthChange(data && data.session));
-    sb.auth.onAuthStateChange((_e, session) => onAuthChange(session));
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {   // came back from the emailed link
+        recovering = true;
+        me = (session && session.user) || null;
+        openPanel();
+        return;
+      }
+      onAuthChange(session);
+    });
   }
 
   $("#account-tab").addEventListener("click", openPanel);
