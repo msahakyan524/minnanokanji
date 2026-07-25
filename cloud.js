@@ -444,10 +444,15 @@
     });
   }
 
+  /* Ask the database to hand the row back, and believe only what it returns —
+     an update that quietly changes nothing looks identical to a success. */
   async function saveAvatar(value) {
-    const { error } = await sb.from("profiles").update({ avatar: value }).eq("id", me.id);
+    if (!sb || !me) return;
+    const { data, error } = await sb.from("profiles")
+      .update({ avatar: value }).eq("id", me.id).select("avatar").maybeSingle();
     if (error) return toastSafe("Չհաջողվեց՝ " + error.message);
-    profile = Object.assign({}, profile, { avatar: value });
+    if (!data) return toastSafe("Նկարը չպահվեց — դուրս եկ ու նորից մուտք գործիր։");
+    profile = Object.assign({}, profile, { avatar: data.avatar });
     setTabLabel();      // corner button
     renderStrip();      // strip above the sets
     renderPanel();      // the panel itself
