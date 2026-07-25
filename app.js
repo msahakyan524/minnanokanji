@@ -42,7 +42,6 @@ function loadScript(url) {
   scriptCache.set(url, p);
   return p;
 }
-const TESSERACT_URL = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
 const KUROMOJI_URL = "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js";
 
 /* ---------- caches so we never fetch the same thing twice ---------- */
@@ -544,201 +543,9 @@ const ocrStatus = $("#ocr-status");
 const ocrReview = $("#ocr-review");
 const ocrText = $("#ocr-text");
 
-/* Clean any picture for OCR: right size, grayscale with a gentle contrast
-   stretch, white margin. NOT hard black/white — the reader does better with a
-   normal grayscale photo. Works on an <img> or a <canvas>. */
-function cleanForOCR(drawable, srcW, srcH) {
-  const target = 1600;
-  const scale = Math.min(target / Math.max(srcW, srcH), 3); // upscale small, cap huge
-  const w = Math.max(1, Math.round(srcW * scale));
-  const h = Math.max(1, Math.round(srcH * scale));
-  const pad = Math.round(Math.max(w, h) * 0.12); // white margin
-
-  const canvas = document.createElement("canvas");
-  canvas.width = w + pad * 2;
-  canvas.height = h + pad * 2;
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(drawable, pad, pad, w, h);
-
-  const imgData = ctx.getImageData(pad, pad, w, h);
-  const px = imgData.data;
-  // grayscale + find range
-  let lo = 255, hi = 0;
-  for (let i = 0; i < px.length; i += 4) {
-    const g = (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) | 0;
-    px[i] = px[i + 1] = px[i + 2] = g;
-    if (g < lo) lo = g;
-    if (g > hi) hi = g;
-  }
-  // gentle contrast stretch (map [lo,hi] -> [0,255]); keep grays, no binarize
-  const range = Math.max(1, hi - lo);
-  for (let i = 0; i < px.length; i += 4) {
-    const v = Math.max(0, Math.min(255, Math.round(((px[i] - lo) / range) * 255)));
-    px[i] = px[i + 1] = px[i + 2] = v;
-  }
-  ctx.putImageData(imgData, pad, pad);
-  return canvas;
-}
-
-/* load an image file, then clean it */
-function preprocess(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(cleanForOCR(img, img.width, img.height));
-    img.onerror = () => reject(new Error("չհաջողվեց բացել նկարը"));
-    img.src = URL.createObjectURL(file);
-  });
-}
-
-// page-segmentation modes to try, in order: single block, then single character
-const PSM_TRIES = ["6", "10"];
-
-async function recognizeKanji(canvas) {
-  const worker = await Tesseract.createWorker("jpn", 1, {
-    logger: (m) => {
-      if (m.status === "recognizing text") {
-        ocrStatus.innerHTML = '<span class="spin"></span>Կարդում եմ… ' + Math.round(m.progress * 100) + "%";
-      }
-    },
-  });
-  try {
-    let best = "";
-    for (const psm of PSM_TRIES) {
-      await worker.setParameters({ tessedit_pageseg_mode: psm });
-      const { data } = await worker.recognize(canvas);
-      const clean = (data.text || "").replace(/\s+/g, "");
-      const kanjiCount = [...clean].filter(isKanji).length;
-      if (kanjiCount > [...best].filter(isKanji).length) best = clean;
-      if (kanjiCount > 0 && psm === "6") break; // block mode already found kanji
-    }
-    return best;
-  } finally {
-    await worker.terminate();
-  }
-}
-
-/* OCR.space — a free reader that is actually good at Japanese printed text */
-async function ocrSpace(dataUrl) {
-  const body = new URLSearchParams();
-  body.set("apikey", "helloworld"); // free demo key
-  body.set("OCREngine", "3");       // engine 3 reads Japanese far better than 1
-  body.set("scale", "true");
-  body.set("detectOrientation", "true");
-  body.set("base64Image", dataUrl);
-  const r = await fetch("https://api.ocr.space/parse/image", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-  });
-  const j = await r.json();
-  if (j.IsErroredOnProcessing) {
-    throw new Error(Array.isArray(j.ErrorMessage) ? j.ErrorMessage.join(" ") : (j.ErrorMessage || "OCR error"));
-  }
-  const t = (j.ParsedResults && j.ParsedResults[0] && j.ParsedResults[0].ParsedText) || "";
-  return t.replace(/\s+/g, "");
-}
-
-/* shared: take an already-cleaned canvas, read it, show the result */
-async function runOCR(cleanCanvas) {
-  previewPanel.classList.remove("hidden");
-  previewImg.src = cleanCanvas.toDataURL(); // show exactly what we read
-  ocrReview.classList.add("hidden");
-  ocrStatus.className = "status";
-  ocrStatus.innerHTML = '<span class="spin"></span>Կարդում եմ նշանը…';
-  results.innerHTML = "";
-
-  let clean = "";
-  // 1) OCR.space first (best for Japanese); JPEG keeps it under the size limit
-  try {
-    clean = await ocrSpace(cleanCanvas.toDataURL("image/jpeg", 0.85));
-  } catch (e) {
-    clean = "";
-  }
-  // 2) fall back to Tesseract only if OCR.space found no kanji/katakana
-  if (![...clean].some(isLookup)) {
-    try {
-      ocrStatus.innerHTML = '<span class="spin"></span>Կրկին փորձում եմ…';
-      await loadScript(TESSERACT_URL);
-      if (typeof Tesseract !== "undefined") {
-        const t = await recognizeKanji(cleanCanvas);
-        if ([...t].some(isLookup) || !clean) clean = t;
-      }
-    } catch (e) {}
-  }
-
-  const found = [...clean].some(isLookup);
-  ocrStatus.className = "status";
-  ocrStatus.textContent = found
-    ? "Ահա թե ինչ կարդացի — ուղղիր անհրաժեշտության դեպքում՝"
-    : "Չկարողացա հստակ կարդալ։ Մուտքագրիր ներքևում կամ փորձիր ավելի մեծ ու հստակ լուսանկար։";
-  ocrText.value = clean;
-  ocrReview.classList.remove("hidden");
-  if (found) analyze(clean); // show results right away; user can still fix + re-run
-}
-
-async function handleImage(file) {
-  if (!file || !file.type.startsWith("image/")) return;
-  previewPanel.classList.remove("hidden");
-  ocrStatus.className = "status";
-  ocrStatus.innerHTML = '<span class="spin"></span>Մաքրում եմ նկարը…';
-  try {
-    const canvas = await preprocess(file);
-    await runOCR(canvas);
-  } catch (e) {
-    ocrStatus.className = "status error";
-    ocrStatus.textContent = "Չհաջողվեց բացել նկարը՝ " + e.message;
-  }
-}
-
-/* ---------- live camera (Google-Lens-style: aim, then tap to read) ---------- */
-let camStream = null;
-async function openCamera() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    toast("Այս զննարկիչը կենդանի տեսախցիկ չի աջակցում");
-    return;
-  }
-  try {
-    camStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" } },
-      audio: false,
-    });
-    const v = $("#cam-video");
-    v.srcObject = camStream;
-    await v.play();
-    $("#cam-start").classList.add("hidden");
-    $("#cam-live").classList.remove("hidden");
-  } catch (e) {
-    toast("Տեսախցիկը հասանելի չէ — թույլ տուր մուտքը");
-  }
-}
-function stopCamera() {
-  if (camStream) { camStream.getTracks().forEach((t) => t.stop()); camStream = null; }
-  const v = $("#cam-video");
-  if (v) v.srcObject = null;
-  const live = $("#cam-live"), start = $("#cam-start");
-  if (live) live.classList.add("hidden");
-  if (start) start.classList.remove("hidden");
-}
-async function shootCamera() {
-  const v = $("#cam-video");
-  if (!v || !v.videoWidth) { toast("Տեսախցիկը դեռ պատրաստ չէ"); return; }
-  const c = document.createElement("canvas");
-  c.width = v.videoWidth;
-  c.height = v.videoHeight;
-  c.getContext("2d").drawImage(v, 0, 0);
-  previewPanel.classList.remove("hidden");
-  ocrStatus.className = "status";
-  ocrStatus.innerHTML = '<span class="spin"></span>Մաքրում եմ պատկերը…';
-  try {
-    const cleaned = cleanForOCR(c, c.width, c.height);
-    await runOCR(cleaned);
-  } catch (e) {
-    ocrStatus.className = "status error";
-    ocrStatus.textContent = "Չհաջողվեց կարդալ՝ " + e.message;
-  }
-}
+/* The picture and camera readers used to live here. Both were removed when
+   the app narrowed down to two ways in: draw it, or type it. The preview
+   panel above stays — the drawing pad still shows its result there. */
 
 /* ---------- handwriting recognition (Google input tools) ---------- */
 async function recognizeHandwriting(strokes, w, h) {
@@ -933,25 +740,11 @@ function setupDrawPad() {
 setupDrawPad();
 
 /* ---------- wiring ---------- */
-$("#file-input").addEventListener("change", (e) => handleImage(e.target.files[0]));
-$("#camera-input").addEventListener("change", (e) => handleImage(e.target.files[0]));
-$("#cam-open").addEventListener("click", openCamera);
-$("#cam-stop").addEventListener("click", stopCamera);
-$("#cam-shot").addEventListener("click", shootCamera);
 $("#analyze-btn").addEventListener("click", () => analyze($("#text-input").value));
 $("#text-input").addEventListener("keydown", (e) => { if (e.key === "Enter") analyze(e.target.value); });
 $("#ocr-analyze-btn").addEventListener("click", () => analyze(ocrText.value));
 ocrText.addEventListener("keydown", (e) => { if (e.key === "Enter") analyze(e.target.value); });
 
-const drop = $("#drop");
-["dragenter", "dragover"].forEach((ev) =>
-  drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("dragover"); }));
-["dragleave", "drop"].forEach((ev) =>
-  drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("dragover"); }));
-drop.addEventListener("drop", (e) => {
-  const f = e.dataTransfer.files && e.dataTransfer.files[0];
-  if (f) handleImage(f);
-});
 
 /* if anything ever crashes, show it on the page instead of failing silently */
 window.addEventListener("error", (e) => {
@@ -965,14 +758,10 @@ window.addEventListener("error", (e) => {
 /* ---------- tabs ---------- */
 function setupTabs() {
   const tabs = [...document.querySelectorAll(".tab")];
-  const panels = {
-    draw: $("#tab-draw"), upload: $("#tab-upload"),
-    photo: $("#tab-photo"), type: $("#tab-type"),
-  };
+  const panels = { draw: $("#tab-draw"), type: $("#tab-type") };
   function show(name) {
     tabs.forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
     Object.entries(panels).forEach(([k, p]) => p && p.classList.toggle("hidden", k !== name));
-    if (name !== "photo") stopCamera(); // free the camera when leaving the tab
     try { sessionStorage.setItem("mk_tab", name); } catch (e) {}
   }
   tabs.forEach((t) => t.addEventListener("click", () => show(t.dataset.tab)));
