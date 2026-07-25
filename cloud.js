@@ -343,9 +343,14 @@
         if (!value) return;
         if (isRude(value)) return toastSafe("Ընտրիր ավելի քաղաքավարի անուն։");
         save.disabled = true;
-        const { error } = await sb.from("profiles").update({ display_name: value }).eq("id", me.id);
-        if (error) { save.disabled = false; return toastSafe("Չհաջողվեց՝ " + error.message); }
-        profile = Object.assign({}, profile, { display_name: value });
+        // read the row back, so a rename that quietly did nothing is caught
+        const { data, error } = await sb.from("profiles")
+          .update({ display_name: value }).eq("id", me.id)
+          .select("display_name").maybeSingle();
+        save.disabled = false;
+        if (error) return toastSafe("Չհաջողվեց՝ " + error.message);
+        if (!data) return toastSafe("Անունը չպահվեց — դուրս եկ ու նորից մուտք գործիր։");
+        profile = Object.assign({}, profile, { display_name: data.display_name });
         setTabLabel();
         renderStrip();
         renderPanel();
