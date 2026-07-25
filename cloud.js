@@ -692,8 +692,11 @@
     wrap.appendChild(list);
 
     const gen = btn("Ստեղծել մեկանգամյա կոդ", "btn btn-primary invite-gen");
+    const gen5 = btn("Ստեղծել կոդ 5 հոգու համար", "btn invite-gen");
     wrap.appendChild(gen);
-    const hint = msg("Ամեն ընկերոջ համար՝ նոր կոդ։ Օգտագործվելուց հետո այն այլևս չի աշխատում։");
+    wrap.appendChild(gen5);
+    const hint = msg("Մեկանգամյա կոդը մարում է առաջին օգտագործումից հետո։ " +
+                     "5-հոգանոցը կաշխատի հինգ գրանցման համար, հետո ինքն իրեն կմարի։");
     wrap.appendChild(hint);
     box.appendChild(wrap);
 
@@ -708,8 +711,11 @@
         code.title = "Սեղմիր՝ պատճենելու համար";
         code.addEventListener("click", () => copy(c.code));
         row.appendChild(code);
-        row.appendChild(el("span", "invite-uses", spent ? "օգտագործված" :
-          c.max_uses != null ? "մեկանգամյա" : "օգտագործվել է " + c.uses + " անգամ"));
+        /* a code with room left says how much room: "2 / 5 օգտագործված" */
+        row.appendChild(el("span", "invite-uses",
+          spent ? "օգտագործված"
+                : c.max_uses != null ? c.uses + " / " + c.max_uses + " օգտագործված"
+                                     : "օգտագործվել է " + c.uses + " անգամ"));
         const del = btn("✕", "invite-del");
         del.setAttribute("aria-label", "Ջնջել կոդը");
         del.addEventListener("click", async () => {
@@ -722,15 +728,20 @@
       if (!(data || []).length) list.appendChild(msg("Կոդ չկա — ոչ ոք չի կարող գրանցվել։"));
     }
 
-    gen.addEventListener("click", async () => {
-      gen.disabled = true;
+    /* The database already counts uses and refuses a code once it is spent
+       (see the signup trigger), so a code for five people is simply one with
+       max_uses = 5 — nothing else to enforce here. */
+    async function makeInvite(button, maxUses, label) {
+      button.disabled = true;
       const code = makeCode();
-      const { error } = await sb.from("invites").insert({ code, max_uses: 1, label: "one-time" });
-      gen.disabled = false;
+      const { error } = await sb.from("invites").insert({ code, max_uses: maxUses, label });
+      button.disabled = false;
       if (error) { list.appendChild(msg("Չհաջողվեց՝ " + error.message, "bad")); return; }
       await draw();
       copy(code);
-    });
+    }
+    gen.addEventListener("click", () => makeInvite(gen, 1, "one-time"));
+    gen5.addEventListener("click", () => makeInvite(gen5, 5, "five-uses"));
 
     await draw();
   }
