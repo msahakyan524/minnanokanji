@@ -455,6 +455,10 @@ body.flash-mode #flash-view { display: block; }
 }
 .quiz-ja { font-size: 64px; line-height: 1.2; color: var(--ink); }
 .quiz-ja.word { font-size: 40px; }
+/* furigana: small and soft, so it helps without competing with the character */
+.quiz-ja rt { font-size: 16px; font-weight: 400; color: var(--ink-soft); }
+.quiz-ja ruby { ruby-position: over; }
+.quiz-furi { justify-content: center; margin: 0 0 12px; }
 .quiz-ask { margin: 8px 0 0; color: var(--ink-soft); font-size: 14px; }
 .quiz-options { display: grid; gap: 8px; margin-bottom: 16px; }
 .quiz-opt {

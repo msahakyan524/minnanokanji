@@ -1480,6 +1480,45 @@ const shuffled = (arr) => {
 /* only cards that carry a meaning can be asked, or serve as a wrong option */
 const quizPool = (items) => items.filter((i) => i.meaning && i.meaning.trim());
 
+/* ---- furigana: the reading set small above the characters ----
+   Kept as a choice, remembered between visits: reading along is how you learn
+   a new word, reading without is how you test that you actually know it. */
+const FURI_KEY = "mk_furi";
+let furiOn = true;
+try { furiOn = localStorage.getItem(FURI_KEY) !== "0"; } catch (e) {}
+
+const plainJa = (ja) => '<span lang="ja">' + esc(ja) + "</span>";
+
+function furiganaFor(it) {
+  const ja = it.ja || "";
+  let rt = (it.reading || "").trim();
+  if (!rt) return plainJa(ja);
+
+  if (it.type !== "kanji") {
+    // a word: the reading belongs over the kanji part only — the kana ending
+    // is already readable, and repeating it above looks wrong
+    let cut = ja.length;
+    while (cut > 0 && !isKanji(ja[cut - 1])) cut--;
+    const head = ja.slice(0, cut), tail = ja.slice(cut);
+    if (!head) return plainJa(ja);                       // all kana already
+    if (tail && rt.endsWith(tail)) rt = rt.slice(0, rt.length - tail.length);
+    return '<span lang="ja"><ruby>' + esc(head) + "<rt>" + esc(rt) + "</rt></ruby>" +
+           esc(tail) + "</span>";
+  }
+  // a single kanji: it may carry a dozen readings — two is enough to hint with
+  rt = rt.split("・").slice(0, 2).join("・");
+  return '<span lang="ja"><ruby>' + esc(ja) + "<rt>" + esc(rt) + "</rt></ruby></span>";
+}
+
+function paintQuizWord(it) {
+  const ja = $("#quiz-ja");
+  ja.className = "quiz-ja" + (it.type === "word" ? " word" : "");
+  // with furigana on, the text of this box also contains the reading, so keep
+  // the bare word here for anything that needs to know what's being asked
+  ja.dataset.ja = it.ja;
+  ja.innerHTML = furiOn ? furiganaFor(it) : plainJa(it.ja);
+}
+
 /* decoyFrom: where the wrong options come from. On a replay round only a few
    cards are left, so the decoys keep coming from the whole original set. */
 function startQuiz(items, title, noPush, decoyFrom) {
@@ -1505,9 +1544,7 @@ function showQuestion() {
   const it = quiz.items[quiz.idx];
   quiz.locked = false;
   $("#quiz-progress").textContent = (quiz.idx + 1) + " / " + quiz.items.length + " · " + quiz.title;
-  const ja = $("#quiz-ja");
-  ja.className = "quiz-ja" + (it.type === "word" ? " word" : "");
-  ja.innerHTML = '<span lang="ja">' + esc(it.ja) + "</span>";
+  paintQuizWord(it);
 
   // three decoys from the same set, never repeating the right answer's text
   const decoys = shuffled(quiz.pool.filter((x) => x.meaning !== it.meaning));
@@ -1580,6 +1617,17 @@ function finishQuiz() {
   done.appendChild(back);
 }
 $("#quiz-back").addEventListener("click", goBack);
+
+/* Flipping furigana mid-question only repaints the word, so an answer you
+   already tapped keeps its green/red instead of being wiped. */
+const furiBox = $("#quiz-furi");
+furiBox.checked = furiOn;
+furiBox.addEventListener("change", () => {
+  furiOn = furiBox.checked;
+  try { localStorage.setItem(FURI_KEY, furiOn ? "1" : "0"); } catch (e) {}
+  const it = quiz.items[quiz.idx];
+  if (it && !$("#quiz").classList.contains("hidden")) paintQuizWord(it);
+});
 
 /* ---- edit a set (rename + remove cards) ---- */
 let editState = { id: null, name: "", items: [] };
