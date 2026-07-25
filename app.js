@@ -498,8 +498,14 @@ async function analyze(text) {
       await analyzeWithoutGrammar(text);
     }
 
+    // nothing had kanji, but there IS kana — treat it as a reading and look
+    // for the kanji spelling of that word
+    if (!results.children.length && [...text].some((c) => isHiragana(c) || isKatakana(c))) {
+      await renderFromReading(text);
+    }
+
     if (!results.children.length) {
-      results.appendChild(el("div", "panel error-box", "Այս տեքստում կանջի չգտնվեց։ Փորձիր ավելի հստակ նկար կամ ուղղակի մուտքագրիր նշանները։"));
+      results.appendChild(el("div", "panel error-box", "Այս տեքստում կանջի չգտնվեց։ Փորձիր գրել մատիկով կամ մուտքագրել այլ բառ։"));
     } else {
       saveState(text); // remember results + history until the tab is closed
     }
@@ -509,6 +515,37 @@ async function analyze(text) {
   } finally {
     running = false;
   }
+}
+
+/* ---- typed in kana only? then it's a READING, not a word ----
+   Someone types たべる because they don't know it's written 食べる — that's the
+   whole point of the box. Ask the dictionary which words are read that way and
+   show the ones that have a kanji spelling. Exact readings first; if none, the
+   ones that START with what was typed, so a half-typed word still helps. */
+async function renderFromReading(text) {
+  let j;
+  try { j = await jotoba(text); } catch (e) { return false; }
+
+  const exact = [], startsWith = [];
+  for (const w of j.words || []) {
+    const kanji = w.reading && w.reading.kanji;
+    const kana = (w.reading && w.reading.kana) || "";
+    if (!kanji || ![...kanji].some(isKanji)) continue;   // only spellings that teach a kanji
+    if (kana === text) exact.push({ kanji, kana });
+    else if (kana.startsWith(text)) startsWith.push({ kanji, kana });
+  }
+  const hits = (exact.length ? exact : startsWith).slice(0, 6);
+  if (!hits.length) return false;
+
+  results.appendChild(el("div", "panel notice",
+    "«" + esc(text) + "» կարդացվում է այսպես՝"));
+  const seen = new Set();
+  for (const h of hits) {
+    if (seen.has(h.kanji)) continue;
+    seen.add(h.kanji);
+    await renderWord(h.kanji, h.kana, {});
+  }
+  return true;
 }
 
 /* fallback when the grammar helper isn't loaded: split into runs of Japanese
