@@ -671,6 +671,8 @@ body.flash-mode #flash-view { display: block; }
 
 /* Draw pad */
 .draw-hint { margin: 0 0 12px; color: var(--ink-soft); font-size: 14px; }
+/* same look as the drawing hint, but it sits under the field, not above it */
+.type-hint { margin: 12px 0 0; }
 .draw-wrap { display: flex; justify-content: center; }
 #draw-canvas {
   width: 280px;
