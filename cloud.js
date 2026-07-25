@@ -510,11 +510,22 @@
      N5 = 1, N4 = 2, N3 = 4, N2 = 8, N1 = 16 — so one N5 word is worth
      half an N4 word, exactly as asked. Cards with no level count as 1. */
   const LEVEL_POINTS = { 5: 1, 4: 2, 3: 4, 2: 8, 1: 16 };
+  /* One word, one score. The same kanji often sits in several sets — putting
+     水 in three of them and knowing it three times is still knowing 水 once,
+     so each written form counts a single time. (The vocabulary site keeps its
+     own separate score, so knowing a word on both sites still counts on both
+     — those are two different things learned.) */
   function scoreOf(sets) {
-    let total = 0;
+    const counted = new Map();          // "kanji|水" -> what that word is worth
     (sets || []).forEach((s) => (s.items || []).forEach((i) => {
-      if (i.known === true) total += LEVEL_POINTS[i.level] || 1;
+      if (i.known !== true || !i.ja) return;
+      const key = (i.type || "kanji") + "|" + i.ja;
+      const worth = LEVEL_POINTS[i.level] || 1;
+      // if the same word is filed under two levels, keep the higher value
+      if (!counted.has(key) || counted.get(key) < worth) counted.set(key, worth);
     }));
+    let total = 0;
+    counted.forEach((worth) => { total += worth; });
     return total;
   }
 
