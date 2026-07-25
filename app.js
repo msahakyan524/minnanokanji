@@ -1850,14 +1850,17 @@ $("#card-say").addEventListener("click", sayCard);
   }
 })();
 
-/* ---- keyboard: ← → move between cards, Space/Enter flip, S = say ---- */
+/* ---- keyboard: ↑ know, ↓ don't know, ← → move between cards,
+       Space/Enter flip the card, S says it out loud ---- */
 document.addEventListener("keydown", (e) => {
   if (!document.body.classList.contains("flash-mode")) return;
   if ($("#study").classList.contains("hidden")) return;
   if ($("#flashcard").classList.contains("hidden")) return; // finished screen
   const tag = (e.target && e.target.tagName || "").toLowerCase();
   if (tag === "input" || tag === "textarea") return;
-  if (e.key === "ArrowRight") { e.preventDefault(); goToCard(1); }
+  if (e.key === "ArrowUp") { e.preventDefault(); markCardAnimated(true); }
+  else if (e.key === "ArrowDown") { e.preventDefault(); markCardAnimated(false); }
+  else if (e.key === "ArrowRight") { e.preventDefault(); goToCard(1); }
   else if (e.key === "ArrowLeft") { e.preventDefault(); goToCard(-1); }
   else if (e.key === " " || e.code === "Space" || e.key === "Enter") { e.preventDefault(); flipCard(); }
   else if (e.key === "s" || e.key === "S") { e.preventDefault(); sayCard(); }
