@@ -946,7 +946,9 @@ body.flash-mode #flash-view { display: block; }
 }
 .sites__there {
   position: absolute; right: -2px; bottom: -2px; width: 20px; height: 20px;
-  border-radius: 50%; background: var(--card); box-shadow: 0 0 0 2px var(--card);
+  /* disc + ring take the page's own pink, not white, so the little flower
+     reads as a gap punched in the big one rather than a sticker on top */
+  border-radius: 50%; background: var(--bg); box-shadow: 0 0 0 2px var(--bg);
   transition: transform .34s cubic-bezier(.4,.1,.15,1), opacity .34s ease;
   cursor: pointer;
 }
