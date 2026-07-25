@@ -705,9 +705,23 @@
 
   $("#account-tab").addEventListener("click", openPanel);
   $("#account-close").addEventListener("click", closePanel);
-  $("#account-modal").addEventListener("click", (e) => { if (e.target.id === "account-modal") closePanel(); });
+  /* Tapping the dark area closes the panel — but ONLY if the tap both started
+     and ended there. Selecting text in a box and letting go past the edge used
+     to count as a tap on the background and shut the whole thing. */
+  let downOnBackdrop = false;
+  $("#account-modal").addEventListener("pointerdown", (e) => {
+    downOnBackdrop = e.target.id === "account-modal";
+  });
+  $("#account-modal").addEventListener("click", (e) => {
+    if (downOnBackdrop && e.target.id === "account-modal") closePanel();
+    downOnBackdrop = false;
+  });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !$("#account-modal").classList.contains("hidden")) closePanel();
+    if (e.key !== "Escape") return;
+    if ($("#account-modal").classList.contains("hidden")) return;
+    const tag = (e.target && e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea") return;   // Esc clears a field, not the panel
+    closePanel();
   });
 
   /* app.js hooks */
