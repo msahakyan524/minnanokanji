@@ -1072,7 +1072,7 @@ function showWait(total) {
   updateWait(0, total);
   nextFact();
   clearInterval(factTimer);
-  factTimer = setInterval(nextFact, 5000);
+  factTimer = setInterval(nextFact, 10000);   // long enough to actually read one
 }
 function nextFact() {
   const f = $("#wait-fact");
