@@ -1,0 +1,11 @@
+# Files that belong to the project but not to the public website.
+# GitHub Pages builds this folder with Jekyll, and anything listed here is
+# simply not copied to the published site — it stays in the repository.
+#
+# supabase-*.sql are the database blueprint (table names, access rules). No
+# passwords, but no reason for strangers to read the shape of the database.
+# CLAUDE.md is a note to the coding assistant, not to visitors.
+exclude:
+  - CLAUDE.md
+  - supabase-setup.sql
+  - supabase-merge-vocab.sql
