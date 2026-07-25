@@ -293,6 +293,10 @@ body.modal-open { overflow: hidden; }
   overflow: hidden; flex: none;
 }
 .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* the shared line-art avatars (avatars.js) come in as inline SVG and take
+   their colour from here, so one set serves both sister sites */
+.avatar svg { width: 78%; height: 78%; display: block; color: var(--accent-ink); }
+.avatar-choice svg, .avatar-grid svg { color: var(--accent-ink); }
 .avatar-lg { width: 96px; height: 96px; font-size: 48px; box-shadow: 0 0 0 3px var(--accent-soft); }
 .avatar-sm { width: 44px; height: 44px; font-size: 22px; }
 .avatar-tab { width: 42px; height: 42px; font-size: 20px; }

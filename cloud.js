@@ -362,13 +362,21 @@
 
   function avatarImg(value, cls) {
     const box = el("div", "avatar " + (cls || ""));
-    if (value && value.startsWith("data:")) {
+    const v = value || "🌸";
+    if (v.startsWith("data:")) {
       const im = document.createElement("img");
-      im.src = value;
+      im.src = v;
       im.alt = "";
       box.appendChild(im);
     } else {
-      box.textContent = value || "🌸";
+      /* Draw the shared line-art version (avatars.js) rather than the raw
+         emoji, so the same picture appears on both sister sites and picks up
+         this site's ink colour. The stored value is still the emoji, so
+         nothing in the database changed. Anything we have no drawing for
+         falls back to the character itself. */
+      const svg = typeof avatarSVG === "function" ? avatarSVG(v) : "";
+      if (svg) box.innerHTML = svg;
+      else box.textContent = v;
     }
     return box;
   }
