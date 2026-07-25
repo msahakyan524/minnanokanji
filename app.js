@@ -1161,10 +1161,12 @@ $("#open-flashcards").addEventListener("click", openFlash);
 $("#flash-close").addEventListener("click", goBack);
 
 /* ---- set list ---- */
+let freshSetId = null;      // the set made a moment ago — its card slides in
 function renderSetList() {
   const box = $("#set-list");
   if (!box) return;
   box.innerHTML = "";
+  if (window.CLOUD && window.CLOUD.renderStrip) window.CLOUD.renderStrip();
 
   const stars = loadStars();
   const starCard = el("div", "set-card starred-set");
@@ -1180,7 +1182,7 @@ function renderSetList() {
   box.appendChild(starCard);
 
   loadSets().forEach((set) => {
-    const card = el("div", "set-card");
+    const card = el("div", "set-card" + (set.id === freshSetId ? " set-fresh" : ""));
     const known = set.items.filter((i) => i.known === true).length;
     card.appendChild(el("div", "set-info",
       '<div class="set-title">' + esc(set.name) + "</div><div class=\"set-sub\">" +
@@ -1198,6 +1200,11 @@ function renderSetList() {
     card.appendChild(edit);
     card.appendChild(del);
     box.appendChild(card);
+    if (set.id === freshSetId) {
+      // let it land, then bring it into view and stop marking it as new
+      setTimeout(() => card.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
+      freshSetId = null;
+    }
   });
 }
 
@@ -1419,8 +1426,10 @@ $("#create-set").addEventListener("click", async () => {
     row.words.forEach((w) => items.push({ type: "word", ja: w.written, reading: w.reading, meaning: w.meaning, known: null }));
   });
   const sets = loadSets();
-  sets.unshift({ id: "s" + Date.now(), name, items });
+  const newId = "s" + Date.now();
+  sets.unshift({ id: newId, name, items });
   saveSets(sets);
+  freshSetId = newId;
   // reset the form
   $("#set-name").value = "";
   $("#add-words").checked = false;

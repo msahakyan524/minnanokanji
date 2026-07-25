@@ -67,6 +67,7 @@
       lastScore = points;
       sb.from("profiles").update({ score: points }).eq("id", me.id).then(() => {}, () => {});
     }
+    renderStrip();
   }
 
   /* app.js calls this after every save; we wait a moment so a burst of
@@ -433,6 +434,55 @@
 
   function toastSafe(t) { if (typeof toast === "function") toast(t); }
 
+  /* ---------------- the strip on the flashcards screen ----------------
+     So people see who they are and how they are doing without opening
+     anything. Tapping it opens the full account panel. */
+  async function renderStrip() {
+    const box = $("#me-strip");
+    if (!box) return;
+    box.innerHTML = "";
+    if (!me) {
+      box.classList.remove("hidden", "strip-in");
+      const p = el("span", "strip-guest", "Մուտք գործիր՝ առաջընթացդ պահելու համար");
+      box.appendChild(p);
+      const b = btn("Մուտք", "btn btn-sm btn-primary");
+      b.addEventListener("click", openPanel);
+      box.appendChild(b);
+      return;
+    }
+    const sets = read(SETS_KEY);
+    const cards = sets.reduce((n, s) => n + ((s.items && s.items.length) || 0), 0);
+    const known = sets.reduce((n, s) => n + ((s.items || []).filter((i) => i.known === true).length), 0);
+    const pct = cards ? Math.round((known / cards) * 100) : 0;
+    const points = scoreOf(sets);
+
+    box.classList.remove("hidden");
+    box.classList.add("strip-in");
+    box.appendChild(avatarImg(profile && profile.avatar, "avatar-sm"));
+
+    const mid = el("div", "strip-mid");
+    mid.appendChild(el("div", "strip-name", esc((profile && profile.display_name) || me.email)));
+    const bar = el("div", "admin-bar");
+    bar.innerHTML = '<span style="width:' + pct + '%"></span>';
+    mid.appendChild(bar);
+    mid.appendChild(el("div", "strip-sub", known + " / " + cards + " քարտ · " + pct + "%"));
+    box.appendChild(mid);
+
+    const right = el("div", "strip-right");
+    right.appendChild(el("div", "strip-points", points + " միավոր"));
+    box.appendChild(right);
+
+    box.onclick = openPanel;
+    box.title = "Բացիր հաշիվդ";
+
+    // rank needs the shared scoreboard; skip quietly if it isn't set up yet
+    const { data } = await sb.from("leaderboard").select("*");
+    if (!data) return;
+    const sorted = data.slice().sort((a, b) => (b.score || 0) - (a.score || 0));
+    const i = sorted.findIndex((r) => r.display_name === ((profile && profile.display_name) || ""));
+    if (i >= 0) right.appendChild(el("div", "strip-rank", "#" + (i + 1)));
+  }
+
   /* ---------------- score + ranking ----------------
      A harder word counts for more: each level up doubles the value.
      N5 = 1, N4 = 2, N3 = 4, N2 = 8, N1 = 16 — so one N5 word is worth
@@ -715,6 +765,7 @@
       sb.from("profiles").update({ last_seen: new Date().toISOString() }).eq("id", me.id).then(() => {}, () => {});
     }
     setTabLabel();
+    renderStrip();
     if (!$("#account-modal").classList.contains("hidden")) renderPanel();
   }
 
@@ -756,6 +807,7 @@
   window.CLOUD = {
     pushSoon,
     logSession,
+    renderStrip,
     isOn: () => !!me,
   };
 })();
