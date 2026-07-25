@@ -1247,8 +1247,9 @@ function nextFact() {
 function updateWait(done, total) {
   const fill = $("#wait-fill");
   const count = $("#wait-count");
-  if (fill) fill.style.width = (total ? Math.round((done / total) * 100) : 0) + "%";
-  if (count) count.textContent = done + " / " + total;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  if (fill) fill.style.width = pct + "%";
+  if (count) count.textContent = pct + "% · " + done + " / " + total;
 }
 function hideWait() {
   clearInterval(factTimer);
