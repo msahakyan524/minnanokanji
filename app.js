@@ -1485,7 +1485,21 @@ const shuffled = (arr) => {
   return a;
 };
 /* only cards that carry a meaning can be asked, or serve as a wrong option */
-const quizPool = (items) => items.filter((i) => i.meaning && i.meaning.trim());
+/* Only cards that carry a meaning can be asked or serve as a wrong option —
+   and each word only once. The same kanji can easily sit in a set twice (added
+   by hand and again with a whole level), and being asked 水 twice in a row
+   feels broken. A kanji card and a word card that happen to look the same are
+   still two different things, so they are kept apart. */
+function quizPool(items) {
+  const seen = new Set();
+  return (items || []).filter((i) => {
+    if (!i || !i.meaning || !i.meaning.trim() || !i.ja) return false;
+    const key = (i.type || "kanji") + "|" + i.ja;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 /* ---- furigana: the reading set small above the characters ----
    Kept as a choice, remembered between visits: reading along is how you learn
