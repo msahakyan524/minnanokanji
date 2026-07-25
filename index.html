@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="favicon.svg?v=1">
 <link rel="preconnect" href="https://kanjiapi.dev">
 <link rel="preconnect" href="https://jotoba.de">
-<link rel="stylesheet" href="style.css?v=76">
+<link rel="stylesheet" href="style.css?v=77">
 </head>
 <body>
   <div class="sakura" aria-hidden="true">
@@ -117,6 +117,21 @@
         </div>
         <p class="study-tip">Քաշիր աջ՝ գիտեմ, ձախ՝ չգիտեմ։ Սեղմիր քարտին՝ շրջելու համար։<br>Համակարգչում՝ ↑ գիտեմ · ↓ չգիտեմ · ← → քարտերի միջև · Space/Enter՝ շրջել։</p>
         <div id="study-done" class="hidden"></div>
+      </div>
+
+      <!-- Quiz mode: same cards, played as a game. The kanji on top, four
+           meanings below, one of them right. -->
+      <div id="quiz" class="hidden">
+        <div class="study-head">
+          <button type="button" id="quiz-back" class="btn btn-back">← Դեպի հավաքածուներ</button>
+          <span id="quiz-progress" class="study-progress"></span>
+        </div>
+        <div class="quiz-card">
+          <div id="quiz-ja" class="quiz-ja"></div>
+          <p class="quiz-ask">Ո՞րն է իմաստը</p>
+        </div>
+        <div id="quiz-options" class="quiz-options"></div>
+        <div id="quiz-done" class="hidden"></div>
       </div>
 
       <!-- Edit a set -->
@@ -279,9 +294,9 @@
        Ձեռագիրը ճանաչում է Google-ը։ Ամբողջությամբ աշխատում է քո browser-ում։</p>
   </footer>
 
-  <script src="i18n.js?v=75" defer></script>
+  <script src="i18n.js?v=76" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.8/dist/umd/supabase.js" defer></script>
-  <script src="app.js?v=75" defer></script>
+  <script src="app.js?v=76" defer></script>
   <script src="avatars.js?v=1"></script>
   <script src="cloud.js?v=75" defer></script>
   <script src="site-switch.js?v=1"></script>

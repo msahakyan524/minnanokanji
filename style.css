@@ -440,6 +440,46 @@ body.flash-mode #flash-view { display: block; }
 .set-flower { height: 1.5em; width: auto; vertical-align: -0.4em; margin-right: 4px; }
 .set-card .set-title { display: flex; align-items: center; }
 
+/* four buttons don't fit beside the name on a phone — let them drop to a row
+   of their own instead of squeezing the title */
+@media (max-width: 560px) {
+  .set-card { flex-wrap: wrap; gap: 8px; }
+  .set-card .set-info { flex: 1 0 100%; }
+  .set-card .btn { flex: 1 1 auto; }
+}
+
+/* ===== Quiz: the kanji, then the meanings to choose from ===== */
+.quiz-card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 24px 16px; text-align: center; margin-bottom: 16px;
+}
+.quiz-ja { font-size: 64px; line-height: 1.2; color: var(--ink); }
+.quiz-ja.word { font-size: 40px; }
+.quiz-ask { margin: 8px 0 0; color: var(--ink-soft); font-size: 14px; }
+.quiz-options { display: grid; gap: 8px; margin-bottom: 16px; }
+.quiz-opt {
+  min-height: 44px; padding: 8px 16px; width: 100%;
+  font-family: inherit; font-size: 16px; line-height: 1.5; text-align: left;
+  color: var(--ink); background: var(--card);
+  border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
+  transition: transform .16s ease, background-color .2s ease, border-color .2s ease;
+}
+.quiz-opt:hover:enabled { border-color: var(--accent); transform: translateY(-1px); }
+.quiz-opt:disabled { cursor: default; opacity: .75; }
+/* the two answers that matter stay at full strength while the rest fade back */
+.quiz-opt.is-right, .quiz-opt.is-wrong { opacity: 1; color: #fff; font-weight: 700; }
+/* a shade darker than --good so white text on it clears 4.5:1 */
+.quiz-opt.is-right { background: #0d7c55; border-color: #0d7c55; }
+.quiz-opt.is-wrong { background: var(--bad); border-color: var(--bad); }
+@media (prefers-reduced-motion: reduce) {
+  .quiz-opt { transition: none }
+  .quiz-opt:hover:enabled { transform: none }
+}
+@media (max-width: 420px) {
+  .quiz-ja { font-size: 56px; }
+  .quiz-ja.word { font-size: 32px; }
+}
+
 .new-set {
   background: var(--card); border: 1px solid var(--line);
   border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow); margin-bottom: 20px;
@@ -496,8 +536,10 @@ body.flash-mode #flash-view { display: block; }
 .flashcard.swipe-right .fc-face { box-shadow: 0 0 0 3px var(--good) inset, var(--shadow); }
 .flashcard.swipe-left .fc-face { box-shadow: 0 0 0 3px #c0392b inset, var(--shadow); }
 @keyframes fc-in { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
-.flashcard.fc-enter { animation: fc-in 0.24s ease both; }
-@media (prefers-reduced-motion: reduce) { .flashcard.fc-enter { animation: none; } }
+.flashcard.fc-enter, .quiz-card.fc-enter { animation: fc-in 0.24s ease both; }
+@media (prefers-reduced-motion: reduce) {
+  .flashcard.fc-enter, .quiz-card.fc-enter { animation: none; }
+}
 .study-tip { text-align: center; color: var(--ink-soft); font-size: 12px; margin: 0 0 16px; }
 .fc-inner {
   position: relative; width: 100%; height: 100%;

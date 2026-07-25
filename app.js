@@ -1144,6 +1144,7 @@ function showFlashUI() {
   document.body.classList.add("flash-mode");
   studyFocus(false);
   $("#study").classList.add("hidden");
+  $("#quiz").classList.add("hidden");
   $("#set-edit").classList.add("hidden");
   $("#edit-add").classList.add("hidden");
   $("#set-list").style.display = "";
@@ -1180,6 +1181,13 @@ function renderSetList() {
     startStudy(stars.map((x) => ({ ...x, known: null })), "Հատուկ բառեր", null);
   });
   starCard.appendChild(sStudy);
+  const sQuiz = el("button", "btn", "Խաղալ");
+  sQuiz.type = "button";
+  sQuiz.addEventListener("click", () => {
+    if (!stars.length) { toast("Հատուկ բառերը դատարկ են"); return; }
+    startQuiz(stars, "Հատուկ բառեր");
+  });
+  starCard.appendChild(sQuiz);
   box.appendChild(starCard);
 
   loadSets().forEach((set) => {
@@ -1191,6 +1199,9 @@ function renderSetList() {
     const study = el("button", "btn btn-primary", "Սովորել");
     study.type = "button";
     study.addEventListener("click", () => startStudy(set.items, set.name, set));
+    const play = el("button", "btn", "Խաղալ");
+    play.type = "button";
+    play.addEventListener("click", () => startQuiz(set.items, set.name));
     const edit = el("button", "btn", "Խմբագրել");
     edit.type = "button";
     edit.addEventListener("click", () => openEditSet(set));
@@ -1198,6 +1209,7 @@ function renderSetList() {
     del.type = "button";
     del.addEventListener("click", () => { saveSets(loadSets().filter((s) => s.id !== set.id)); renderSetList(); });
     card.appendChild(study);
+    card.appendChild(play);
     card.appendChild(edit);
     card.appendChild(del);
     box.appendChild(card);
@@ -1589,13 +1601,14 @@ function finishStudy() {
 }
 /* Round result chart: green = know, red = don't know, grey = skipped.
    Drawn as one SVG ring; each slice is a piece of the ring's dashed outline. */
-function resultChart(known, unknown, skipped) {
+function resultChart(known, unknown, skipped, labels) {
   const total = known + unknown + skipped || 1;
   const R = 52, C = 2 * Math.PI * R;
+  const L = labels || ["Գիտեմ", "Չգիտեմ", "Բաց թողնված"];
   const slices = [
-    { n: known, color: "var(--good)", label: "Գիտեմ" },
-    { n: unknown, color: "var(--bad)", label: "Չգիտեմ" },
-    { n: skipped, color: "#e2cdd7", label: "Բաց թողնված" },
+    { n: known, color: "var(--good)", label: L[0] },
+    { n: unknown, color: "var(--bad)", label: L[1] },
+    { n: skipped, color: "#e2cdd7", label: L[2] },
   ];
   let arcs = "", at = 0;
   slices.filter((s) => s.n > 0).forEach((s) => {
@@ -1623,6 +1636,125 @@ function resultChart(known, unknown, skipped) {
   return wrap;
 }
 
+/* ---- quiz mode (pick the right meaning) ----
+   The same cards as study, played instead of flipped: the kanji on top, up to
+   four meanings below, one of them right. Wrong picks are kept so they can be
+   replayed at the end. Nothing is written back to the set — a game is not a
+   judgement about what you know. */
+let quiz = { items: [], idx: 0, score: 0, wrong: [], title: "", pool: [], locked: false };
+
+const shuffled = (arr) => {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+/* only cards that carry a meaning can be asked, or serve as a wrong option */
+const quizPool = (items) => items.filter((i) => i.meaning && i.meaning.trim());
+
+/* decoyFrom: where the wrong options come from. On a replay round only a few
+   cards are left, so the decoys keep coming from the whole original set. */
+function startQuiz(items, title, noPush, decoyFrom) {
+  const asked = quizPool(items);
+  const pool = quizPool(decoyFrom || items);
+  if (!asked.length || pool.length < 2) { toast("Խաղալու համար պետք է առնվազն 2 իմաստով քարտ"); return; }
+  quiz = { items: shuffled(asked), idx: 0, score: 0, wrong: [], title, pool, locked: false };
+  $("#quiz-done").classList.add("hidden");
+  document.querySelectorAll(".quiz-card, .quiz-options").forEach((n) => { n.style.display = ""; });
+  $("#study").classList.add("hidden");
+  $("#quiz").classList.remove("hidden");
+  studyFocus(true);
+  showQuestion();
+  window.scrollTo(0, 0);
+  if (!noPush) pushView(() => {
+    $("#quiz").classList.add("hidden");
+    studyFocus(false);
+    renderSetList();
+  });
+}
+
+function showQuestion() {
+  const it = quiz.items[quiz.idx];
+  quiz.locked = false;
+  $("#quiz-progress").textContent = (quiz.idx + 1) + " / " + quiz.items.length + " · " + quiz.title;
+  const ja = $("#quiz-ja");
+  ja.className = "quiz-ja" + (it.type === "word" ? " word" : "");
+  ja.innerHTML = '<span lang="ja">' + esc(it.ja) + "</span>";
+
+  // three decoys from the same set, never repeating the right answer's text
+  const decoys = shuffled(quiz.pool.filter((x) => x.meaning !== it.meaning));
+  const seen = new Set([it.meaning]);
+  const picked = [];
+  for (const d of decoys) {
+    if (picked.length === 3) break;
+    if (seen.has(d.meaning)) continue;
+    seen.add(d.meaning);
+    picked.push(d);
+  }
+  const box = $("#quiz-options");
+  box.innerHTML = "";
+  shuffled([it, ...picked]).forEach((opt) => {
+    const b = el("button", "quiz-opt", esc(shortMeaning(opt.meaning)));
+    b.type = "button";
+    b.addEventListener("click", () => answer(b, opt.meaning === it.meaning, it));
+    box.appendChild(b);
+  });
+  // gentle entrance so each question feels like a new one
+  const card = document.querySelector(".quiz-card");
+  card.classList.remove("fc-enter");
+  void card.offsetWidth;
+  card.classList.add("fc-enter");
+}
+/* meanings arrive as long comma lists; two are enough to choose between */
+function shortMeaning(m) {
+  return (m || "").split(",").slice(0, 2).join(",").trim();
+}
+
+function answer(btn, right, it) {
+  if (quiz.locked) return;
+  quiz.locked = true;
+  const opts = [...document.querySelectorAll(".quiz-opt")];
+  opts.forEach((b) => { b.disabled = true; });
+  if (right) {
+    quiz.score++;
+    btn.classList.add("is-right");
+  } else {
+    quiz.wrong.push(it);
+    btn.classList.add("is-wrong");
+    // show which one it should have been, so the round still teaches something
+    const want = shortMeaning(it.meaning);
+    const good = opts.find((b) => b.textContent === want);
+    if (good) good.classList.add("is-right");
+  }
+  setTimeout(() => {
+    if (quiz.idx < quiz.items.length - 1) { quiz.idx++; showQuestion(); }
+    else finishQuiz();
+  }, right ? 650 : 1400);
+}
+
+function finishQuiz() {
+  document.querySelectorAll(".quiz-card, .quiz-options").forEach((n) => { n.style.display = "none"; });
+  const done = $("#quiz-done");
+  done.classList.remove("hidden");
+  done.innerHTML = "";
+  done.appendChild(el("p", "fc-reading", "Վերջ " + SAKURA_PLAIN));
+  done.appendChild(resultChart(quiz.score, quiz.wrong.length, 0, ["Ճիշտ", "Սխալ", ""]));
+  if (quiz.wrong.length) {
+    const again = el("button", "btn btn-primary", "Կրկնել սխալները (" + quiz.wrong.length + ")");
+    again.type = "button";
+    const missed = quiz.wrong.slice(), from = quiz.pool;
+    again.addEventListener("click", () => startQuiz(missed, quiz.title + " · կրկնում", true, from));
+    done.appendChild(again);
+  }
+  const back = el("button", "btn", "Դեպի հավաքածուներ");
+  back.type = "button";
+  back.addEventListener("click", goBack);
+  done.appendChild(back);
+}
+$("#quiz-back").addEventListener("click", goBack);
+
 /* ---- edit a set (rename + remove cards) ---- */
 let editState = { id: null, name: "", items: [] };
 function openEditSet(set) {
@@ -1630,6 +1762,7 @@ function openEditSet(set) {
   $("#set-list").style.display = "none";
   $("#new-set").style.display = "none";
   $("#study").classList.add("hidden");
+  $("#quiz").classList.add("hidden");
   $("#set-edit").classList.remove("hidden");
   $("#edit-add").classList.add("hidden");
   $("#edit-add-grid").innerHTML = "";
