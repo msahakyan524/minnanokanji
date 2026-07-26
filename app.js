@@ -985,8 +985,24 @@ function openFlash() {
   pushView(() => { document.body.classList.remove("flash-mode"); rememberView("home"); });
 }
 function closeFlash() { document.body.classList.remove("flash-mode"); rememberView("home"); }
+
+/* ---- the ✕ on a card ----
+   Studying puts the page away and shows only the card, so while a deck or a
+   quiz is open there is nothing left to tap but "back to the sets" — one step
+   out of two. The ✕ takes both steps at once and lands on the site itself.
+   It unwinds through history rather than just hiding things, so the browser's
+   own Back arrow does not walk back into the deck afterwards. */
+function exitToSite() {
+  window.scrollTo(0, 0);
+  const depth = views.length;
+  if (depth) { try { history.go(-depth); return; } catch (e) {} }
+  while (views.length) { const c = views.pop(); if (c) c(); }
+  closeFlash();
+}
 $("#open-flashcards").addEventListener("click", openFlash);
 $("#flash-close").addEventListener("click", goBack);
+$("#study-exit").addEventListener("click", exitToSite);
+$("#quiz-exit").addEventListener("click", exitToSite);
 
 /* ---- set list ---- */
 let freshSetId = null;      // the set made a moment ago — its card slides in
