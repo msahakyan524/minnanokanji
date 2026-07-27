@@ -561,7 +561,11 @@ body.fs-study .fs-toggle .fs-in { display: none; }
 body.fs-study .fs-toggle .fs-out { display: block; }
 body.fs-study .study-x:not(.fs-toggle) { display: none; }   /* one ✕ at a time */
 /* nothing scrolls while the cards hold the screen — it stays perfectly still */
-body.fs-study { overflow: hidden; overscroll-behavior: none; }
+/* fixed, not merely overflow:hidden — iPhones ignore the latter and still drift */
+body.fs-study {
+  position: fixed; inset: 0; width: 100%; height: 100%;
+  overflow: hidden; overscroll-behavior: none;
+}
 body.fs-study #study, body.fs-study #quiz {
   position: fixed; inset: 0; z-index: 60; overflow: hidden;
   background: var(--bg); padding: 16px;
