@@ -560,11 +560,16 @@ body.flash-mode #flash-view { display: block; }
 body.fs-study .fs-toggle .fs-in { display: none; }
 body.fs-study .fs-toggle .fs-out { display: block; }
 body.fs-study .study-x:not(.fs-toggle) { display: none; }   /* one ✕ at a time */
+/* nothing scrolls while the cards hold the screen — it stays perfectly still */
+body.fs-study { overflow: hidden; overscroll-behavior: none; }
 body.fs-study #study, body.fs-study #quiz {
-  position: fixed; inset: 0; z-index: 60; overflow: auto;
+  position: fixed; inset: 0; z-index: 60; overflow: hidden;
   background: var(--bg); padding: 16px;
   display: flex; flex-direction: column; justify-content: center;
 }
+/* the quiz keeps a way down only if its answers truly don't fit the screen */
+body.fs-study #quiz { overflow-y: auto; overscroll-behavior: contain; }
+body.fs-study .flashcard { touch-action: none; }   /* an up-down drag no longer moves the page */
 /* each row keeps its own width — flex would otherwise shrink them to their text */
 body.fs-study #study > *, body.fs-study #quiz > * {
   width: 100%; max-width: 640px; margin-left: auto; margin-right: auto; flex: none;
