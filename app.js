@@ -1007,6 +1007,24 @@ function exitToSite() {
    window ourselves — so it also works on iPhones, which have no such API.
    The ✕ in the corner brings the card back into the window. */
 function inNativeFull() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
+/* Safari's address bar and toolbar sit *over* the page, so "the whole screen"
+   is taller than what you can actually see. Measure the visible strip and hand
+   it to the CSS, or the card's top and bottom hide behind those bars. */
+function syncFsViewport() {
+  const root = document.documentElement.style;
+  if (!document.body.classList.contains("fs-study")) {
+    root.removeProperty("--fs-h"); root.removeProperty("--fs-top"); return;
+  }
+  const vv = window.visualViewport;
+  root.setProperty("--fs-h", (vv ? vv.height : window.innerHeight) + "px");
+  root.setProperty("--fs-top", (vv ? vv.offsetTop : 0) + "px");
+}
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", syncFsViewport);
+  window.visualViewport.addEventListener("scroll", syncFsViewport);
+}
+window.addEventListener("resize", syncFsViewport);
+window.addEventListener("orientationchange", () => setTimeout(syncFsViewport, 300));
 function fullLabels(on) {
   const txt = on ? "Վերադառնալ պատուհան" : "Ամբողջ էկրանով";   // i18n swaps this itself
   ["#study-full", "#quiz-full"].forEach((sel) => {
@@ -1021,17 +1039,20 @@ function enterFull() {
   const ask = el.requestFullscreen || el.webkitRequestFullscreen;
   if (ask) { try { const p = ask.call(el); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
   window.scrollTo(0, 0);
+  syncFsViewport();
+  setTimeout(syncFsViewport, 250);   // again once the browser's bars settle
 }
 function leaveFull() {
   document.body.classList.remove("fs-study");
   fullLabels(false);
+  syncFsViewport();
   const drop = document.exitFullscreen || document.webkitExitFullscreen;
   if (inNativeFull() && drop) { try { const p = drop.call(document); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
 }
 function toggleFull() { document.body.classList.contains("fs-study") ? leaveFull() : enterFull(); }
 /* Esc, or the browser's own way out, leaves our blown-up layout too */
 ["fullscreenchange", "webkitfullscreenchange"].forEach((ev) =>
-  document.addEventListener(ev, () => { if (!inNativeFull()) { document.body.classList.remove("fs-study"); fullLabels(false); } })
+  document.addEventListener(ev, () => { if (!inNativeFull()) { document.body.classList.remove("fs-study"); fullLabels(false); syncFsViewport(); } })
 );
 
 $("#open-flashcards").addEventListener("click", openFlash);

@@ -566,9 +566,14 @@ body.fs-study {
   position: fixed; inset: 0; width: 100%; height: 100%;
   overflow: hidden; overscroll-behavior: none;
 }
+/* --fs-h / --fs-top come from JS: the height Safari actually leaves visible
+   between its address bar and its toolbar. Without them the deck is as tall as
+   the whole phone and the bars cover its top and bottom. */
 body.fs-study #study, body.fs-study #quiz {
-  position: fixed; inset: 0; z-index: 60; overflow: hidden;
-  background: var(--bg); padding: 16px;
+  position: fixed; left: 0; right: 0; top: var(--fs-top, 0px);
+  height: var(--fs-h, 100vh); z-index: 60; overflow: hidden;
+  background: var(--bg);
+  padding: calc(12px + env(safe-area-inset-top)) 16px calc(12px + env(safe-area-inset-bottom));
   display: flex; flex-direction: column; justify-content: center;
 }
 /* the quiz keeps a way down only if its answers truly don't fit the screen */
