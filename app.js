@@ -968,6 +968,7 @@ window.addEventListener("popstate", (e) => {
 /* ---- open / close ---- */
 function showFlashUI() {
   document.body.classList.add("flash-mode");
+  leaveFull();          // the sets belong in the window, never full screen
   studyFocus(false);
   $("#study").classList.add("hidden");
   $("#quiz").classList.add("hidden");
@@ -993,14 +994,50 @@ function closeFlash() { document.body.classList.remove("flash-mode"); rememberVi
    It unwinds through history rather than just hiding things, so the browser's
    own Back arrow does not walk back into the deck afterwards. */
 function exitToSite() {
+  leaveFull();
   window.scrollTo(0, 0);
   const depth = views.length;
   if (depth) { try { history.go(-depth); return; } catch (e) {} }
   while (views.length) { const c = views.pop(); if (c) c(); }
   closeFlash();
 }
+/* ---- full screen ----
+   The card can take over the whole screen. We ask the browser for real full
+   screen where that is allowed, and in any case blow the deck up to fill the
+   window ourselves — so it also works on iPhones, which have no such API.
+   The ✕ in the corner brings the card back into the window. */
+function inNativeFull() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
+function fullLabels(on) {
+  const txt = on ? "Վերադառնալ պատուհան" : "Ամբողջ էկրանով";   // i18n swaps this itself
+  ["#study-full", "#quiz-full"].forEach((sel) => {
+    const b = document.querySelector(sel);
+    if (b) { b.title = txt; b.setAttribute("aria-label", txt); }
+  });
+}
+function enterFull() {
+  document.body.classList.add("fs-study");
+  fullLabels(true);
+  const el = document.documentElement;
+  const ask = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (ask) { try { const p = ask.call(el); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+  window.scrollTo(0, 0);
+}
+function leaveFull() {
+  document.body.classList.remove("fs-study");
+  fullLabels(false);
+  const drop = document.exitFullscreen || document.webkitExitFullscreen;
+  if (inNativeFull() && drop) { try { const p = drop.call(document); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+}
+function toggleFull() { document.body.classList.contains("fs-study") ? leaveFull() : enterFull(); }
+/* Esc, or the browser's own way out, leaves our blown-up layout too */
+["fullscreenchange", "webkitfullscreenchange"].forEach((ev) =>
+  document.addEventListener(ev, () => { if (!inNativeFull()) { document.body.classList.remove("fs-study"); fullLabels(false); } })
+);
+
 $("#open-flashcards").addEventListener("click", openFlash);
 $("#flash-close").addEventListener("click", goBack);
+$("#study-full").addEventListener("click", toggleFull);
+$("#quiz-full").addEventListener("click", toggleFull);
 $("#study-exit").addEventListener("click", exitToSite);
 $("#quiz-exit").addEventListener("click", exitToSite);
 

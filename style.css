@@ -554,6 +554,24 @@ body.flash-mode #flash-view { display: block; }
   transition: background 0.2s ease, color 0.2s ease;
 }
 .study-x:hover, .study-x:focus-visible { background: var(--accent-soft); color: var(--ink); }
+/* Full screen: the same button opens it and closes it — corners while the
+   card sits in the page, an ✕ once it fills the screen. */
+.fs-toggle .fs-out { display: none; }
+body.fs-study .fs-toggle .fs-in { display: none; }
+body.fs-study .fs-toggle .fs-out { display: block; }
+body.fs-study .study-x:not(.fs-toggle) { display: none; }   /* one ✕ at a time */
+body.fs-study #study, body.fs-study #quiz {
+  position: fixed; inset: 0; z-index: 60; overflow: auto;
+  background: var(--bg); padding: 16px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+/* each row keeps its own width — flex would otherwise shrink them to their text */
+body.fs-study #study > *, body.fs-study #quiz > * {
+  width: 100%; max-width: 640px; margin-left: auto; margin-right: auto; flex: none;
+}
+body.fs-study .study-head { margin-bottom: 16px; }
+/* the card takes whatever room the rest of the screen leaves it */
+body.fs-study #study > .flashcard { flex: 1 1 auto; height: auto; min-height: 180px; max-height: 440px; }
 .flashcard {
   perspective: 1200px; margin: 0 auto 16px; max-width: 460px; height: 300px; cursor: pointer;
   touch-action: pan-y;  /* let us read left/right swipes; page still scrolls up/down */
